@@ -4,7 +4,7 @@
  */
 
 const CONFIG = {
-  APPS_SCRIPT_URL: '', // URL Web App Google Apps Script khi deploy
+  APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbzljaoiARl70kjai5CxHDRI7Sau5T-ohhotniY6oUARkKEqERE-VDMTpsymI_DkLFkW/exec', // URL Web App Google Apps Script khi deploy
   APP_TITLE: 'ĐĂNG KÝ ĐỒNG PHỤC NĂM HỌC 2026 - 2027',
   ORGANIZATION_NAME: 'TRƯỜNG TIỂU HỌC NGUYỄN THANH TUYỀN',
   ACADEMIC_YEAR: 'NĂM HỌC 2026 - 2027',
