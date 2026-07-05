@@ -1,6 +1,6 @@
 /**
  * HỆ THỐNG ĐĂNG KÝ ĐỒNG PHỤC 2026 - FRONTEND CONTROLLER
- * Phân quyền: Nhân viên User ĐƯỢC QUYỀN SỬA ĐƠN, KHÔNG ĐƯỢC QUYỀN XÓA ĐƠN.
+ * Tối ưu hóa cho môi trường GitHub Pages và Google Apps Script Live.
  */
 
 let priceList = [];
@@ -14,7 +14,9 @@ document.addEventListener('DOMContentLoaded', () => {
 async function initApp() {
   setupNavigation();
   setupAdminLogin();
+  setupLookup();
   setupEditOrderForm();
+
   await loadPriceData();
   await loadOrdersData();
   
@@ -78,6 +80,8 @@ function switchTab(targetId) {
     renderDashboard();
     renderAdminOrdersTable();
     renderPriceManagementTable();
+  } else if (targetId === 'lookup-section') {
+    setupLookup();
   }
 }
 
@@ -100,6 +104,8 @@ function setupAdminLogin() {
 }
 
 function openAdminLoginModal() {
+  setupAdminLogin();
+
   const modal = document.getElementById('admin-login-modal');
   const errAlert = document.getElementById('login-error-alert');
   const passInput = document.getElementById('login-password-input');
@@ -206,7 +212,7 @@ async function loadPriceData() {
     try {
       const res = await fetch(`${CONFIG.APPS_SCRIPT_URL}?action=getPrices`);
       const json = await res.json();
-      if (json.success) {
+      if (json.success && Array.isArray(json.data) && json.data.length > 0) {
         priceList = json.data;
         return;
       }
@@ -222,7 +228,7 @@ async function loadOrdersData() {
     try {
       const res = await fetch(`${CONFIG.APPS_SCRIPT_URL}?action=getOrders`);
       const json = await res.json();
-      if (json.success) {
+      if (json.success && Array.isArray(json.data)) {
         ordersList = json.data;
         return;
       }
@@ -289,9 +295,14 @@ function loadFourDefaultUniformRows(gender) {
 
 function addProductRow(defaultProductTitle = '') {
   const container = document.getElementById('product-rows-container');
+  if (!container) return;
+
   const rowId = 'row-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
 
-  const uniqueProducts = [...new Set(priceList.map(item => item.tenSP))];
+  let uniqueProducts = [...new Set(priceList.map(item => item.tenSP))];
+  if (uniqueProducts.length === 0) {
+    uniqueProducts = UNIFORM_CATEGORIES || ['Áo sơ mi', 'Quần short', 'Váy', 'Áo thể dục', 'Quần thể dục'];
+  }
 
   const rowHtml = `
     <div id="${rowId}" class="product-row grid grid-cols-12 gap-3 items-center bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm transition-all hover:border-indigo-300">
@@ -373,7 +384,11 @@ function bindRowEvents(rowEl) {
       return;
     }
 
-    const availableSizes = priceList.filter(item => item.tenSP === selectedProd && item.trangThai === 'Hoạt động');
+    let availableSizes = priceList.filter(item => item.tenSP === selectedProd && item.trangThai === 'Hoạt động');
+    if (availableSizes.length === 0) {
+      availableSizes = UNIFORM_SIZES.map((sz, i) => ({ size: sz, donGia: 120000 + i * 5000 }));
+    }
+
     availableSizes.forEach(item => {
       const opt = document.createElement('option');
       opt.value = item.size;
@@ -722,9 +737,6 @@ function initCharts(data) {
   }
 }
 
-/**
- * BẢNG DANH SÁCH ĐƠN HÀNG (PHÂN QUYỀN: CẢ USER VÀ ADMIN ĐỀU ĐƯỢC SỬA; CHỈ ADMIN MỚI ĐƯỢC XÓA)
- */
 function renderAdminOrdersTable() {
   const tbody = document.getElementById('admin-orders-tbody');
   if (!tbody) return;
@@ -765,17 +777,14 @@ function renderAdminOrdersTable() {
       </td>
       <td>
         <div class="flex items-center space-x-1">
-          <!-- In biên lai -->
           <button onclick="viewReceiptById('${o.maDon}')" class="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg" title="In biên lai A4 Ngang">
             <i class="fas fa-print"></i>
           </button>
           
-          <!-- Sửa đơn (Cả Admin và User đều được sửa) -->
           <button onclick="openEditOrderModal('${o.maDon}')" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg" title="Sửa đơn đăng ký">
             <i class="fas fa-edit"></i>
           </button>
 
-          <!-- Xóa đơn (CHỈ ADMIN MỚI ĐƯỢC XÓA - USER BỊ ẨN) -->
           ${userRole === 'admin' ? `
             <button onclick="deleteOrderAdmin('${o.maDon}', '${o.hoTen}')" class="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg" title="Xóa đơn đăng ký (Chỉ Admin)">
               <i class="fas fa-trash-alt"></i>
@@ -818,9 +827,9 @@ function openEditOrderModal(maDon) {
   if (genderSelect) genderSelect.value = order.gioiTinh || 'Nam';
   if (noteInput) noteInput.value = order.ghiChu || '';
 
-  // Load danh sách món hiện tại để chỉnh sửa
   if (itemsContainer) {
-    const uniqueProducts = [...new Set(priceList.map(item => item.tenSP))];
+    let uniqueProducts = [...new Set(priceList.map(item => item.tenSP))];
+    if (uniqueProducts.length === 0) uniqueProducts = UNIFORM_CATEGORIES;
     const sizes = UNIFORM_SIZES || ['Size 1', 'Size 2', 'Size 3', 'Size 4', 'Size 5', 'Size 6', 'Size 7', 'Size 8', 'Size 9', 'Size 10', 'Size 11', 'Size 12'];
 
     itemsContainer.innerHTML = (order.chiTietSanPham || []).map((item, idx) => `

@@ -4,7 +4,7 @@
  */
 
 const CONFIG = {
-  APPS_SCRIPT_URL: '', // Thay thế Web App URL sau khi deploy
+  APPS_SCRIPT_URL: '', // Dán URL Google Apps Script Web App tại đây sau khi deploy
   APP_TITLE: 'ĐĂNG KÝ ĐỒNG PHỤC NĂM HỌC 2026 - 2027',
   ORGANIZATION_NAME: 'TRƯỜNG TIỂU HỌC NGUYỄN THANH TUYỀN',
   ACADEMIC_YEAR: 'NĂM HỌC 2026 - 2027',
@@ -19,6 +19,7 @@ const CONFIG = {
 const UNIFORM_CATEGORIES = ['Áo sơ mi', 'Quần short', 'Váy', 'Áo thể dục', 'Quần thể dục'];
 const UNIFORM_SIZES = ['Size 1', 'Size 2', 'Size 3', 'Size 4', 'Size 5', 'Size 6', 'Size 7', 'Size 8', 'Size 9', 'Size 10', 'Size 11', 'Size 12'];
 
+// Sinh 60 đơn giá mẫu cho 5 loại x 12 size
 const DEFAULT_PRICES = [];
 
 UNIFORM_CATEGORIES.forEach((cat, cIdx) => {
@@ -61,12 +62,15 @@ const DEFAULT_ORDERS = [
 
 class LocalDB {
   static getPrices() {
-    const data = localStorage.getItem('DP_PRICES');
-    if (!data) {
-      localStorage.setItem('DP_PRICES', JSON.stringify(DEFAULT_PRICES));
-      return DEFAULT_PRICES;
-    }
-    return JSON.parse(data);
+    try {
+      const data = localStorage.getItem('DP_PRICES');
+      if (data) {
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch(e) {}
+    localStorage.setItem('DP_PRICES', JSON.stringify(DEFAULT_PRICES));
+    return DEFAULT_PRICES;
   }
 
   static savePrices(prices) {
@@ -74,12 +78,15 @@ class LocalDB {
   }
 
   static getOrders() {
-    const data = localStorage.getItem('DP_ORDERS');
-    if (!data) {
-      localStorage.setItem('DP_ORDERS', JSON.stringify(DEFAULT_ORDERS));
-      return DEFAULT_ORDERS;
-    }
-    return JSON.parse(data);
+    try {
+      const data = localStorage.getItem('DP_ORDERS');
+      if (data) {
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch(e) {}
+    localStorage.setItem('DP_ORDERS', JSON.stringify(DEFAULT_ORDERS));
+    return DEFAULT_ORDERS;
   }
 
   static saveOrder(orderData) {
