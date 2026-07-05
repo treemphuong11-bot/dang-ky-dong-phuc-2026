@@ -1,0 +1,1283 @@
+/**
+ * HỆ THỐNG ĐĂNG KÝ ĐỒNG PHỤC 2026 - FRONTEND CONTROLLER
+ * Phân quyền: Nhân viên User ĐƯỢC QUYỀN SỬA ĐƠN, KHÔNG ĐƯỢC QUYỀN XÓA ĐƠN.
+ */
+
+let priceList = [];
+let ordersList = [];
+let chartInstances = {};
+
+document.addEventListener('DOMContentLoaded', () => {
+  initApp();
+});
+
+async function initApp() {
+  setupNavigation();
+  setupAdminLogin();
+  setupEditOrderForm();
+  await loadPriceData();
+  await loadOrdersData();
+  
+  initRegistrationForm();
+}
+
+function setupNavigation() {
+  const tabs = document.querySelectorAll('.nav-tab');
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', (e) => {
+      e.preventDefault();
+      const targetId = tab.getAttribute('data-target');
+
+      if (targetId === 'admin-section') {
+        const loggedUserStr = sessionStorage.getItem('LOGGED_USER_DATA');
+        if (!loggedUserStr) {
+          openAdminLoginModal();
+          return;
+        }
+      }
+
+      switchTab(targetId);
+    });
+  });
+}
+
+function switchTab(targetId) {
+  const tabs = document.querySelectorAll('.nav-tab');
+  const sections = document.querySelectorAll('.view-section');
+
+  tabs.forEach(t => {
+    if (t.getAttribute('data-target') === targetId) t.classList.add('active');
+    else t.classList.remove('active');
+  });
+
+  sections.forEach(s => s.classList.add('hidden'));
+
+  const targetEl = document.getElementById(targetId);
+  if (targetEl) {
+    targetEl.classList.remove('hidden');
+  }
+
+  if (targetId === 'admin-section') {
+    const loggedUserStr = sessionStorage.getItem('LOGGED_USER_DATA');
+    let userObj = { name: 'Quản trị viên', role: 'admin' };
+    if (loggedUserStr) {
+      try { userObj = JSON.parse(loggedUserStr); } catch(e){}
+    }
+
+    const displayEl = document.getElementById('current-admin-display');
+    if (displayEl) displayEl.innerText = `${userObj.name} (${userObj.role === 'admin' ? 'Quyền Admin (Toàn quyền)' : 'Quyền User (Chỉ sửa & kiểm tra)'})`;
+
+    const priceBlock = document.getElementById('price-management-block');
+    if (userObj.role === 'user') {
+      if (priceBlock) priceBlock.classList.add('hidden');
+    } else {
+      if (priceBlock) priceBlock.classList.remove('hidden');
+    }
+
+    renderDashboard();
+    renderAdminOrdersTable();
+    renderPriceManagementTable();
+  }
+}
+
+// ============================================================================
+// ĐĂNG NHẬP PHÂN QUYỀN
+// ============================================================================
+
+function setupAdminLogin() {
+  const selectEl = document.getElementById('login-user-select');
+  if (selectEl && CONFIG.ACCOUNTS) {
+    selectEl.innerHTML = CONFIG.ACCOUNTS.map(u => `
+      <option value="${u.username}">${u.name}</option>
+    `).join('');
+  }
+
+  const loginForm = document.getElementById('admin-login-form');
+  if (loginForm) {
+    loginForm.onsubmit = handleAdminLogin;
+  }
+}
+
+function openAdminLoginModal() {
+  const modal = document.getElementById('admin-login-modal');
+  const errAlert = document.getElementById('login-error-alert');
+  const passInput = document.getElementById('login-password-input');
+
+  if (errAlert) errAlert.classList.add('hidden');
+  if (passInput) passInput.value = '';
+
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeAdminLoginModal() {
+  const modal = document.getElementById('admin-login-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function handleAdminLogin(e) {
+  e.preventDefault();
+
+  const username = document.getElementById('login-user-select').value;
+  const password = document.getElementById('login-password-input').value;
+  const errAlert = document.getElementById('login-error-alert');
+  const errMsg = document.getElementById('login-error-msg');
+
+  const matchedUser = CONFIG.ACCOUNTS.find(u => u.username === username && u.password === password);
+
+  if (matchedUser) {
+    sessionStorage.setItem('LOGGED_USER_DATA', JSON.stringify({
+      username: matchedUser.username,
+      name: matchedUser.name,
+      role: matchedUser.role
+    }));
+    closeAdminLoginModal();
+    switchTab('admin-section');
+  } else {
+    if (errAlert && errMsg) {
+      errMsg.innerText = 'Mật khẩu không chính xác! Vui lòng thử lại.';
+      errAlert.classList.remove('hidden');
+    }
+  }
+}
+
+function logoutAdmin() {
+  sessionStorage.removeItem('LOGGED_USER_DATA');
+  switchTab('register-section');
+}
+
+// ============================================================================
+// XUẤT FILE EXCEL (.XLSX)
+// ============================================================================
+
+function exportOrdersToXLSX() {
+  if (ordersList.length === 0) {
+    alert('Không có dữ liệu đơn hàng để xuất!');
+    return;
+  }
+
+  if (typeof XLSX === 'undefined') {
+    alert('Thư viện xuất Excel chưa tải xong, vui lòng thử lại sau giây lát!');
+    return;
+  }
+
+  const exportData = ordersList.map((o, index) => ({
+    'STT': index + 1,
+    'Mã Đơn': o.maDon,
+    'Ngày Đăng Ký': o.ngayDangKy,
+    'Họ và Tên': o.hoTen,
+    'Đơn Vị / Lớp': o.donVi,
+    'Giới Tính': o.gioiTinh,
+    'Chi Tiết Đơn Hàng': (o.chiTietSanPham || []).map(i => `${i.tenSP} (${i.size}) x${i.soLuong}`).join('; '),
+    'Tổng Tiền (VNĐ)': o.tongTien,
+    'Trạng Thái Thanh Toán': o.trangThaiThanhToan,
+    'Ghi Chú': o.ghiChu || ''
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(exportData);
+
+  const colWidths = [
+    { wch: 6 },
+    { wch: 14 },
+    { wch: 14 },
+    { wch: 25 },
+    { wch: 20 },
+    { wch: 10 },
+    { wch: 45 },
+    { wch: 16 },
+    { wch: 20 },
+    { wch: 25 }
+  ];
+  worksheet['!cols'] = colWidths;
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "DanhSachDangKy");
+
+  const fileName = `DongPhuc_DanhSachDangKy_${new Date().toISOString().split('T')[0]}.xlsx`;
+  XLSX.writeFile(workbook, fileName);
+}
+
+// ============================================================================
+// DỮ LIỆU BẢNG GIÁ & ĐƠN HÀNG
+// ============================================================================
+
+async function loadPriceData() {
+  if (CONFIG.APPS_SCRIPT_URL) {
+    try {
+      const res = await fetch(`${CONFIG.APPS_SCRIPT_URL}?action=getPrices`);
+      const json = await res.json();
+      if (json.success) {
+        priceList = json.data;
+        return;
+      }
+    } catch (err) {
+      console.warn('Lỗi kết nối Web App API, dùng Local Database:', err);
+    }
+  }
+  priceList = LocalDB.getPrices();
+}
+
+async function loadOrdersData() {
+  if (CONFIG.APPS_SCRIPT_URL) {
+    try {
+      const res = await fetch(`${CONFIG.APPS_SCRIPT_URL}?action=getOrders`);
+      const json = await res.json();
+      if (json.success) {
+        ordersList = json.data;
+        return;
+      }
+    } catch (err) {
+      console.warn('Lỗi kết nối Web App API, dùng Local Database:', err);
+    }
+  }
+  ordersList = LocalDB.getOrders();
+}
+
+// ============================================================================
+// FORM ĐĂNG KÝ ĐỒNG PHỤC (4 Ô TỰ ĐỘNG)
+// ============================================================================
+
+function initRegistrationForm() {
+  const container = document.getElementById('product-rows-container');
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  const genderSelect = document.getElementById('reg-gender');
+  const selectedGender = genderSelect ? genderSelect.value : 'Nam';
+
+  loadFourDefaultUniformRows(selectedGender);
+
+  if (genderSelect) {
+    genderSelect.onchange = () => {
+      const currentGender = genderSelect.value;
+      const rows = container.querySelectorAll('.product-row');
+      if (rows.length >= 2) {
+        const row2 = rows[1];
+        const pSelect = row2.querySelector('.product-select');
+        if (pSelect) {
+          pSelect.value = (currentGender === 'Nam') ? 'Quần short' : 'Váy';
+          pSelect.dispatchEvent(new Event('change'));
+        }
+      }
+    };
+  }
+
+  const addBtn = document.getElementById('add-product-row-btn');
+  if (addBtn) {
+    addBtn.onclick = () => addProductRow();
+  }
+
+  const form = document.getElementById('registration-form');
+  if (form) {
+    form.onsubmit = handleFormSubmit;
+  }
+}
+
+function loadFourDefaultUniformRows(gender) {
+  const defaultItems = [
+    'Áo sơ mi',
+    (gender === 'Nam') ? 'Quần short' : 'Váy',
+    'Áo thể dục',
+    'Quần thể dục'
+  ];
+
+  defaultItems.forEach(itemTitle => {
+    addProductRow(itemTitle);
+  });
+}
+
+function addProductRow(defaultProductTitle = '') {
+  const container = document.getElementById('product-rows-container');
+  const rowId = 'row-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
+
+  const uniqueProducts = [...new Set(priceList.map(item => item.tenSP))];
+
+  const rowHtml = `
+    <div id="${rowId}" class="product-row grid grid-cols-12 gap-3 items-center bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm transition-all hover:border-indigo-300">
+      <div class="col-span-12 sm:col-span-4">
+        <label class="block text-xs font-semibold text-slate-500 mb-1">Sản phẩm</label>
+        <select class="product-select w-full rounded-lg border-slate-300 text-sm focus:ring-indigo-500 focus:border-indigo-500 p-2 border font-medium">
+          <option value="">-- Chọn sản phẩm --</option>
+          ${uniqueProducts.map(p => `<option value="${p}">${p}</option>`).join('')}
+        </select>
+      </div>
+
+      <div class="col-span-6 sm:col-span-2">
+        <label class="block text-xs font-semibold text-slate-500 mb-1">Size</label>
+        <select class="size-select w-full rounded-lg border-slate-300 text-sm focus:ring-indigo-500 focus:border-indigo-500 p-2 border font-bold disabled:bg-slate-100" disabled>
+          <option value="">-- Size --</option>
+        </select>
+      </div>
+
+      <div class="col-span-6 sm:col-span-2">
+        <label class="block text-xs font-semibold text-slate-500 mb-1">Đơn giá</label>
+        <input type="text" class="unit-price-input w-full rounded-lg border-slate-200 text-sm bg-slate-50 font-semibold text-slate-700 p-2 border" readonly value="0 đ" />
+      </div>
+
+      <div class="col-span-8 sm:col-span-2">
+        <label class="block text-xs font-semibold text-slate-500 mb-1">Số lượng</label>
+        <div class="flex items-center space-x-1">
+          <button type="button" class="btn-qty-minus bg-slate-100 hover:bg-slate-200 text-slate-600 px-2.5 py-1.5 rounded-lg font-bold text-sm">-</button>
+          <input type="number" class="qty-input w-full text-center rounded-lg border-slate-300 text-sm p-1.5 border font-bold" value="1" min="1" max="99" />
+          <button type="button" class="btn-qty-plus bg-slate-100 hover:bg-slate-200 text-slate-600 px-2.5 py-1.5 rounded-lg font-bold text-sm">+</button>
+        </div>
+      </div>
+
+      <div class="col-span-4 sm:col-span-2 flex items-center justify-between">
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">Thành tiền</label>
+          <span class="row-subtotal font-bold text-indigo-600 text-sm">0 đ</span>
+        </div>
+        <button type="button" class="btn-delete-row text-rose-500 hover:text-rose-700 hover:bg-rose-50 p-2 rounded-lg transition-colors" title="Xóa món">
+          <i class="fas fa-trash-alt text-base"></i>
+        </button>
+      </div>
+    </div>
+  `;
+
+  container.insertAdjacentHTML('beforeend', rowHtml);
+  const rowEl = document.getElementById(rowId);
+  bindRowEvents(rowEl);
+
+  if (defaultProductTitle) {
+    const pSelect = rowEl.querySelector('.product-select');
+    if (pSelect) {
+      pSelect.value = defaultProductTitle;
+      pSelect.dispatchEvent(new Event('change'));
+    }
+  }
+
+  calculateTotalSum();
+}
+
+function bindRowEvents(rowEl) {
+  const pSelect = rowEl.querySelector('.product-select');
+  const sSelect = rowEl.querySelector('.size-select');
+  const qtyInput = rowEl.querySelector('.qty-input');
+  const priceInput = rowEl.querySelector('.unit-price-input');
+  const subtotalEl = rowEl.querySelector('.row-subtotal');
+  const btnMinus = rowEl.querySelector('.btn-qty-minus');
+  const btnPlus = rowEl.querySelector('.btn-qty-plus');
+  const btnDelete = rowEl.querySelector('.btn-delete-row');
+
+  pSelect.addEventListener('change', () => {
+    const selectedProd = pSelect.value;
+    sSelect.innerHTML = '<option value="">-- Size --</option>';
+    
+    if (!selectedProd) {
+      sSelect.disabled = true;
+      priceInput.value = '0 đ';
+      subtotalEl.innerText = '0 đ';
+      calculateTotalSum();
+      return;
+    }
+
+    const availableSizes = priceList.filter(item => item.tenSP === selectedProd && item.trangThai === 'Hoạt động');
+    availableSizes.forEach(item => {
+      const opt = document.createElement('option');
+      opt.value = item.size;
+      opt.setAttribute('data-price', item.donGia);
+      opt.textContent = `${item.size} (${formatVND(item.donGia)})`;
+      sSelect.appendChild(opt);
+    });
+
+    sSelect.disabled = false;
+    if (availableSizes.length > 0) {
+      sSelect.selectedIndex = 1;
+      updateRowCalculation(rowEl);
+    }
+  });
+
+  sSelect.addEventListener('change', () => updateRowCalculation(rowEl));
+  qtyInput.addEventListener('input', () => updateRowCalculation(rowEl));
+
+  btnMinus.addEventListener('click', () => {
+    let val = parseInt(qtyInput.value) || 1;
+    if (val > 1) {
+      qtyInput.value = val - 1;
+      updateRowCalculation(rowEl);
+    }
+  });
+
+  btnPlus.addEventListener('click', () => {
+    let val = parseInt(qtyInput.value) || 1;
+    qtyInput.value = val + 1;
+    updateRowCalculation(rowEl);
+  });
+
+  btnDelete.addEventListener('click', () => {
+    rowEl.remove();
+    calculateTotalSum();
+  });
+}
+
+function updateRowCalculation(rowEl) {
+  const sSelect = rowEl.querySelector('.size-select');
+  const qtyInput = rowEl.querySelector('.qty-input');
+  const priceInput = rowEl.querySelector('.unit-price-input');
+  const subtotalEl = rowEl.querySelector('.row-subtotal');
+
+  const selectedOpt = sSelect.options[sSelect.selectedIndex];
+  const unitPrice = selectedOpt ? Number(selectedOpt.getAttribute('data-price') || 0) : 0;
+  const qty = Math.max(1, parseInt(qtyInput.value) || 1);
+
+  const subtotal = unitPrice * qty;
+  priceInput.value = formatVND(unitPrice);
+  subtotalEl.innerText = formatVND(subtotal);
+
+  calculateTotalSum();
+}
+
+function calculateTotalSum() {
+  let grandTotal = 0;
+  document.querySelectorAll('.product-row').forEach(row => {
+    const sSelect = row.querySelector('.size-select');
+    const qtyInput = row.querySelector('.qty-input');
+    const selectedOpt = sSelect.options[sSelect.selectedIndex];
+    const unitPrice = selectedOpt ? Number(selectedOpt.getAttribute('data-price') || 0) : 0;
+    const qty = Math.max(1, parseInt(qtyInput.value) || 1);
+    
+    if (sSelect.value) {
+      grandTotal += unitPrice * qty;
+    }
+  });
+
+  const totalEl = document.getElementById('registration-total-amount');
+  if (totalEl) {
+    totalEl.innerText = formatVND(grandTotal);
+  }
+}
+
+async function handleFormSubmit(e) {
+  e.preventDefault();
+
+  const hoTen = document.getElementById('reg-fullname').value.trim();
+  const sdt = document.getElementById('reg-phone').value.trim();
+  const donVi = document.getElementById('reg-unit').value.trim();
+  const gioiTinh = document.getElementById('reg-gender').value;
+  const ghiChu = document.getElementById('reg-note').value.trim();
+
+  const chiTietSanPham = [];
+
+  document.querySelectorAll('.product-row').forEach(row => {
+    const pSelect = row.querySelector('.product-select');
+    const sSelect = row.querySelector('.size-select');
+    const qtyInput = row.querySelector('.qty-input');
+
+    if (pSelect.value && sSelect.value) {
+      const selectedOpt = sSelect.options[sSelect.selectedIndex];
+      const donGia = Number(selectedOpt.getAttribute('data-price') || 0);
+      const soLuong = parseInt(qtyInput.value) || 1;
+
+      chiTietSanPham.push({
+        tenSP: pSelect.value,
+        size: sSelect.value,
+        donGia: donGia,
+        soLuong: soLuong,
+        thanhTien: donGia * soLuong
+      });
+    }
+  });
+
+  if (chiTietSanPham.length === 0) {
+    alert('Vui lòng chọn ít nhất 1 sản phẩm kèm size!');
+    return;
+  }
+
+  const tongTien = chiTietSanPham.reduce((sum, item) => sum + item.thanhTien, 0);
+
+  const orderPayload = {
+    hoTen,
+    sdt,
+    donVi,
+    gioiTinh,
+    chiTietSanPham,
+    tongTien,
+    ghiChu
+  };
+
+  showLoading(true);
+
+  let newOrder = null;
+
+  if (CONFIG.APPS_SCRIPT_URL) {
+    try {
+      const res = await fetch(CONFIG.APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'createOrder', data: orderPayload })
+      });
+      const json = await res.json();
+      if (json.success) {
+        newOrder = {
+          maDon: json.maDon,
+          ngayDangKy: new Date().toISOString().split('T')[0],
+          ...orderPayload,
+          trangThaiThanhToan: 'Chưa thu'
+        };
+      }
+    } catch (err) {
+      console.warn('POST Apps Script lỗi, dùng Local Database:', err);
+    }
+  }
+
+  if (!newOrder) {
+    newOrder = LocalDB.saveOrder(orderPayload);
+  }
+
+  showLoading(false);
+  await loadOrdersData();
+
+  document.getElementById('registration-form').reset();
+  initRegistrationForm();
+
+  showOrderSuccessModal(newOrder);
+}
+
+function showOrderSuccessModal(order) {
+  openReceiptModal(order);
+}
+
+// ============================================================================
+// TRA CỨU ĐƠN HÀNG
+// ============================================================================
+
+function setupLookup() {
+  const searchInput = document.getElementById('lookup-keyword');
+  const searchBtn = document.getElementById('btn-do-lookup');
+
+  if (searchBtn && searchInput) {
+    searchBtn.onclick = () => performLookup(searchInput.value);
+    searchInput.onkeyup = (e) => {
+      if (e.key === 'Enter') performLookup(searchInput.value);
+    };
+  }
+}
+
+function performLookup(keyword) {
+  const container = document.getElementById('lookup-results');
+  if (!container) return;
+
+  const kw = keyword.toLowerCase().trim();
+  if (!kw) {
+    container.innerHTML = `<p class="text-center text-slate-500 py-6">Nhập Mã đơn hàng hoặc Họ tên để tìm kiếm.</p>`;
+    return;
+  }
+
+  const matches = ordersList.filter(o => 
+    o.maDon.toLowerCase().includes(kw) ||
+    o.hoTen.toLowerCase().includes(kw) ||
+    o.donVi.toLowerCase().includes(kw)
+  );
+
+  if (matches.length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-10 bg-white rounded-2xl border border-slate-200">
+        <i class="fas fa-search-minus text-4xl text-slate-300 mb-3"></i>
+        <p class="text-slate-600 font-semibold">Không tìm thấy thông tin đăng ký phù hợp.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = matches.map(o => `
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 hover:shadow-md transition-shadow">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-100">
+        <div>
+          <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full">${o.maDon}</span>
+          <span class="text-xs text-slate-400 ml-2"><i class="far fa-calendar-alt mr-1"></i>${o.ngayDangKy}</span>
+        </div>
+        <div>
+          <span class="px-3 py-1 text-xs font-semibold rounded-full ${o.trangThaiThanhToan === 'Đã thu' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">
+            <i class="fas ${o.trangThaiThanhToan === 'Đã thu' ? 'fa-check-circle' : 'fa-clock'} mr-1"></i>${o.trangThaiThanhToan}
+          </span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4 text-sm">
+        <div><span class="text-slate-400">Họ và tên:</span> <strong class="text-slate-800">${o.hoTen}</strong></div>
+        <div><span class="text-slate-400">Đơn vị / Lớp:</span> <strong class="text-slate-800">${o.donVi}</strong></div>
+      </div>
+
+      <div class="bg-slate-50 rounded-xl p-3 mb-4">
+        <div class="text-xs font-bold text-slate-500 uppercase mb-2">Chi tiết sản phẩm:</div>
+        <div class="space-y-1.5 text-xs text-slate-700">
+          ${(o.chiTietSanPham || []).map(i => `
+            <div class="flex justify-between items-center">
+              <span>• ${i.tenSP} - Size <strong>${i.size}</strong> x ${i.soLuong}</span>
+              <span class="font-semibold">${formatVND(i.thanhTien)}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between pt-2">
+        <div>
+          <span class="text-xs text-slate-500">Tổng thanh toán:</span>
+          <span class="text-lg font-extrabold text-indigo-600 ml-2">${formatVND(o.tongTien)}</span>
+        </div>
+        <button onclick='viewReceiptById("${o.maDon}")' class="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-xl text-xs font-bold transition-colors">
+          <i class="fas fa-print mr-1.5"></i> In Biên Lai A4 Ngang
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function viewReceiptById(maDon) {
+  const order = ordersList.find(o => o.maDon === maDon);
+  if (order) openReceiptModal(order);
+}
+
+// ============================================================================
+// ADMIN DASHBOARD & BÁO CÁO THỐNG KÊ
+// ============================================================================
+
+function renderDashboard() {
+  const totalOrdersEl = document.getElementById('stat-total-orders');
+  const totalRevenueEl = document.getElementById('stat-total-revenue');
+  const totalCollectedEl = document.getElementById('stat-collected');
+  const totalPendingEl = document.getElementById('stat-pending');
+
+  let tongDon = ordersList.length;
+  let tongTien = 0;
+  let daThu = 0;
+  let chuaThu = 0;
+
+  const byDonVi = {};
+  const bySize = {};
+  const byGioiTinh = {};
+
+  ordersList.forEach(o => {
+    const amt = Number(o.tongTien || 0);
+    tongTien += amt;
+    if (o.trangThaiThanhToan === 'Đã thu') {
+      daThu += amt;
+    } else {
+      chuaThu += amt;
+    }
+
+    const dv = o.donVi || 'Khác';
+    byDonVi[dv] = (byDonVi[dv] || 0) + amt;
+
+    const gt = o.gioiTinh || 'Nam/Nữ';
+    byGioiTinh[gt] = (byGioiTinh[gt] || 0) + 1;
+
+    if (Array.isArray(o.chiTietSanPham)) {
+      o.chiTietSanPham.forEach(item => {
+        const sz = item.size || 'N/A';
+        bySize[sz] = (bySize[sz] || 0) + Number(item.soLuong || 1);
+      });
+    }
+  });
+
+  if (totalOrdersEl) totalOrdersEl.innerText = tongDon;
+  if (totalRevenueEl) totalRevenueEl.innerText = formatVND(tongTien);
+  if (totalCollectedEl) totalCollectedEl.innerText = formatVND(daThu);
+  if (totalPendingEl) totalPendingEl.innerText = formatVND(chuaThu);
+
+  initCharts({ byDonVi, bySize, byGioiTinh, daThu, chuaThu });
+}
+
+function initCharts(data) {
+  if (typeof Chart === 'undefined') return;
+
+  const ctxDonVi = document.getElementById('chart-revenue-unit');
+  if (ctxDonVi) {
+    if (chartInstances.donVi) chartInstances.donVi.destroy();
+    chartInstances.donVi = new Chart(ctxDonVi, {
+      type: 'bar',
+      data: {
+        labels: Object.keys(data.byDonVi),
+        datasets: [{
+          label: 'Doanh thu (VNĐ)',
+          data: Object.values(data.byDonVi),
+          backgroundColor: 'rgba(79, 70, 229, 0.85)',
+          borderRadius: 8
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true } }
+      }
+    });
+  }
+
+  const ctxSize = document.getElementById('chart-size-ratio');
+  if (ctxSize) {
+    if (chartInstances.size) chartInstances.size.destroy();
+    chartInstances.size = new Chart(ctxSize, {
+      type: 'doughnut',
+      data: {
+        labels: Object.keys(data.bySize),
+        datasets: [{
+          data: Object.values(data.bySize),
+          backgroundColor: ['#4f46e5', '#06b6d4', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6']
+        }]
+      },
+      options: { responsive: true }
+    });
+  }
+}
+
+/**
+ * BẢNG DANH SÁCH ĐƠN HÀNG (PHÂN QUYỀN: CẢ USER VÀ ADMIN ĐỀU ĐƯỢC SỬA; CHỈ ADMIN MỚI ĐƯỢC XÓA)
+ */
+function renderAdminOrdersTable() {
+  const tbody = document.getElementById('admin-orders-tbody');
+  if (!tbody) return;
+
+  const loggedUserStr = sessionStorage.getItem('LOGGED_USER_DATA');
+  let userRole = 'admin';
+  if (loggedUserStr) {
+    try { userRole = JSON.parse(loggedUserStr).role; } catch(e){}
+  }
+
+  const searchKw = (document.getElementById('admin-search-input')?.value || '').toLowerCase().trim();
+  const filterStatus = document.getElementById('admin-status-filter')?.value || 'ALL';
+
+  let filtered = ordersList.filter(o => {
+    const matchKw = !searchKw || 
+      o.maDon.toLowerCase().includes(searchKw) ||
+      o.hoTen.toLowerCase().includes(searchKw) ||
+      o.donVi.toLowerCase().includes(searchKw);
+
+    const matchStatus = filterStatus === 'ALL' || o.trangThaiThanhToan === filterStatus;
+    return matchKw && matchStatus;
+  });
+
+  tbody.innerHTML = filtered.map(o => `
+    <tr>
+      <td class="font-bold text-indigo-600">${o.maDon}</td>
+      <td class="text-slate-500 text-xs">${o.ngayDangKy}</td>
+      <td class="font-medium">${o.hoTen}</td>
+      <td class="text-slate-600">${o.donVi}</td>
+      <td class="text-xs">
+        ${(o.chiTietSanPham || []).map(i => `<div>${i.tenSP} (${i.size}) x${i.soLuong}</div>`).join('')}
+      </td>
+      <td class="font-extrabold text-slate-800">${formatVND(o.tongTien)}</td>
+      <td>
+        <button onclick="togglePaymentStatus('${o.maDon}')" class="px-2.5 py-1 text-xs font-semibold rounded-full border transition-all ${o.trangThaiThanhToan === 'Đã thu' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'}">
+          ${o.trangThaiThanhToan} <i class="fas fa-sync-alt text-[10px] ml-1 opacity-70"></i>
+        </button>
+      </td>
+      <td>
+        <div class="flex items-center space-x-1">
+          <!-- In biên lai -->
+          <button onclick="viewReceiptById('${o.maDon}')" class="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg" title="In biên lai A4 Ngang">
+            <i class="fas fa-print"></i>
+          </button>
+          
+          <!-- Sửa đơn (Cả Admin và User đều được sửa) -->
+          <button onclick="openEditOrderModal('${o.maDon}')" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg" title="Sửa đơn đăng ký">
+            <i class="fas fa-edit"></i>
+          </button>
+
+          <!-- Xóa đơn (CHỈ ADMIN MỚI ĐƯỢC XÓA - USER BỊ ẨN) -->
+          ${userRole === 'admin' ? `
+            <button onclick="deleteOrderAdmin('${o.maDon}', '${o.hoTen}')" class="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg" title="Xóa đơn đăng ký (Chỉ Admin)">
+              <i class="fas fa-trash-alt"></i>
+            </button>
+          ` : ''}
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// ============================================================================
+// CHỨC NĂNG SỬA ĐƠN ĐĂNG KÝ (EDIT ORDER)
+// ============================================================================
+
+function setupEditOrderForm() {
+  const form = document.getElementById('edit-order-form');
+  if (form) {
+    form.onsubmit = handleEditOrderSubmit;
+  }
+}
+
+function openEditOrderModal(maDon) {
+  const order = ordersList.find(o => o.maDon === maDon);
+  if (!order) return;
+
+  const modal = document.getElementById('edit-order-modal');
+  const codeEl = document.getElementById('edit-order-code');
+  const idInput = document.getElementById('edit-order-id');
+  const nameInput = document.getElementById('edit-fullname');
+  const unitInput = document.getElementById('edit-unit');
+  const genderSelect = document.getElementById('edit-gender');
+  const noteInput = document.getElementById('edit-note');
+  const itemsContainer = document.getElementById('edit-items-container');
+
+  if (codeEl) codeEl.innerText = order.maDon;
+  if (idInput) idInput.value = order.maDon;
+  if (nameInput) nameInput.value = order.hoTen;
+  if (unitInput) unitInput.value = order.donVi;
+  if (genderSelect) genderSelect.value = order.gioiTinh || 'Nam';
+  if (noteInput) noteInput.value = order.ghiChu || '';
+
+  // Load danh sách món hiện tại để chỉnh sửa
+  if (itemsContainer) {
+    const uniqueProducts = [...new Set(priceList.map(item => item.tenSP))];
+    const sizes = UNIFORM_SIZES || ['Size 1', 'Size 2', 'Size 3', 'Size 4', 'Size 5', 'Size 6', 'Size 7', 'Size 8', 'Size 9', 'Size 10', 'Size 11', 'Size 12'];
+
+    itemsContainer.innerHTML = (order.chiTietSanPham || []).map((item, idx) => `
+      <div class="edit-item-row grid grid-cols-12 gap-2 items-center bg-white p-2 rounded-xl border border-slate-200 text-xs">
+        <div class="col-span-5">
+          <select class="edit-item-product w-full rounded-lg border-slate-300 p-1.5 border font-semibold" onchange="recalcEditTotal()">
+            ${uniqueProducts.map(p => `<option value="${p}" ${p === item.tenSP ? 'selected' : ''}>${p}</option>`).join('')}
+          </select>
+        </div>
+        <div class="col-span-3">
+          <select class="edit-item-size w-full rounded-lg border-slate-300 p-1.5 border font-bold" onchange="recalcEditTotal()">
+            ${sizes.map(sz => `<option value="${sz}" ${sz === item.size ? 'selected' : ''}>${sz}</option>`).join('')}
+          </select>
+        </div>
+        <div class="col-span-2">
+          <input type="number" value="${item.soLuong}" min="1" max="99" class="edit-item-qty w-full text-center rounded-lg border-slate-300 p-1 border font-bold" oninput="recalcEditTotal()" />
+        </div>
+        <div class="col-span-2 text-right">
+          <button type="button" onclick="this.closest('.edit-item-row').remove(); recalcEditTotal();" class="text-rose-500 hover:text-rose-700 p-1">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  recalcEditTotal();
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeEditOrderModal() {
+  const modal = document.getElementById('edit-order-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function recalcEditTotal() {
+  let total = 0;
+  document.querySelectorAll('.edit-item-row').forEach(row => {
+    const p = row.querySelector('.edit-item-product')?.value;
+    const s = row.querySelector('.edit-item-size')?.value;
+    const q = parseInt(row.querySelector('.edit-item-qty')?.value) || 1;
+
+    const match = priceList.find(item => item.tenSP === p && item.size === s);
+    const price = match ? match.donGia : 120000;
+    total += price * q;
+  });
+
+  const totalEl = document.getElementById('edit-total-amount');
+  if (totalEl) totalEl.innerText = formatVND(total);
+}
+
+async function handleEditOrderSubmit(e) {
+  e.preventDefault();
+
+  const maDon = document.getElementById('edit-order-id').value;
+  const hoTen = document.getElementById('edit-fullname').value.trim();
+  const donVi = document.getElementById('edit-unit').value.trim();
+  const gioiTinh = document.getElementById('edit-gender').value;
+  const ghiChu = document.getElementById('edit-note').value.trim();
+
+  const chiTietSanPham = [];
+  document.querySelectorAll('.edit-item-row').forEach(row => {
+    const p = row.querySelector('.edit-item-product').value;
+    const s = row.querySelector('.edit-item-size').value;
+    const q = parseInt(row.querySelector('.edit-item-qty').value) || 1;
+
+    const match = priceList.find(item => item.tenSP === p && item.size === s);
+    const donGia = match ? match.donGia : 120000;
+
+    chiTietSanPham.push({
+      tenSP: p,
+      size: s,
+      donGia: donGia,
+      soLuong: q,
+      thanhTien: donGia * q
+    });
+  });
+
+  if (chiTietSanPham.length === 0) {
+    alert('Đơn hàng cần có ít nhất 1 sản phẩm!');
+    return;
+  }
+
+  const tongTien = chiTietSanPham.reduce((sum, i) => sum + i.thanhTien, 0);
+
+  const updatedPayload = {
+    maDon,
+    hoTen,
+    sdt: '',
+    donVi,
+    gioiTinh,
+    chiTietSanPham,
+    tongTien,
+    ghiChu
+  };
+
+  showLoading(true);
+
+  if (CONFIG.APPS_SCRIPT_URL) {
+    try {
+      await fetch(CONFIG.APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'updateOrder', data: updatedPayload })
+      });
+    } catch (err) {
+      console.warn('Lỗi API update order backend:', err);
+    }
+  }
+
+  LocalDB.updateOrder(updatedPayload);
+  await loadOrdersData();
+  showLoading(false);
+
+  closeEditOrderModal();
+  renderDashboard();
+  renderAdminOrdersTable();
+  alert(`Đã cập nhật đơn đăng ký ${maDon} thành công!`);
+}
+
+async function deleteOrderAdmin(maDon, hoTen) {
+  if (!confirm(`[CHỈ ADMIN] Bạn có chắc chắn muốn xóa đơn đăng ký ${maDon} của "${hoTen}" không?`)) {
+    return;
+  }
+
+  showLoading(true);
+
+  if (CONFIG.APPS_SCRIPT_URL) {
+    try {
+      await fetch(CONFIG.APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'deleteOrder', maDon: maDon })
+      });
+    } catch (err) {
+      console.warn('Lỗi API xóa đơn backend:', err);
+    }
+  }
+
+  LocalDB.deleteOrder(maDon);
+  await loadOrdersData();
+  showLoading(false);
+
+  renderDashboard();
+  renderAdminOrdersTable();
+  alert(`Đã xóa đơn đăng ký ${maDon} thành công!`);
+}
+
+async function togglePaymentStatus(maDon) {
+  const order = ordersList.find(o => o.maDon === maDon);
+  if (!order) return;
+
+  const newStatus = order.trangThaiThanhToan === 'Đã thu' ? 'Chưa thu' : 'Đã thu';
+  
+  if (CONFIG.APPS_SCRIPT_URL) {
+    try {
+      await fetch(CONFIG.APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'updatePayment', maDon: maDon, trangThai: newStatus })
+      });
+    } catch (err) {
+      console.warn('Lỗi API backend:', err);
+    }
+  }
+
+  LocalDB.updatePayment(maDon, newStatus);
+  await loadOrdersData();
+  renderDashboard();
+  renderAdminOrdersTable();
+}
+
+// ============================================================================
+// QUẢN LÝ BẢNG GIÁ 5 SẢN PHẨM X 12 SIZE
+// ============================================================================
+
+function renderPriceManagementTable() {
+  const container = document.getElementById('price-management-cards-container');
+  if (!container) return;
+
+  const categories = UNIFORM_CATEGORIES || ['Áo sơ mi', 'Quần short', 'Váy', 'Áo thể dục', 'Quần thể dục'];
+  const sizes = UNIFORM_SIZES || ['Size 1', 'Size 2', 'Size 3', 'Size 4', 'Size 5', 'Size 6', 'Size 7', 'Size 8', 'Size 9', 'Size 10', 'Size 11', 'Size 12'];
+
+  const categoryIcons = {
+    'Áo sơ mi': 'fa-tshirt text-indigo-600',
+    'Quần short': 'fa-user-nurse text-blue-600',
+    'Váy': 'fa-female text-pink-600',
+    'Áo thể dục': 'fa-running text-amber-600',
+    'Quần thể dục': 'fa-running text-emerald-600'
+  };
+
+  container.innerHTML = categories.map(cat => {
+    const iconClass = categoryIcons[cat] || 'fa-tshirt text-indigo-600';
+    const catPrices = priceList.filter(p => p.tenSP === cat);
+
+    return `
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4 hover:shadow-md transition-shadow">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pb-3 border-b border-slate-100">
+          <div class="flex items-center space-x-2.5">
+            <div class="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-base">
+              <i class="fas ${iconClass}"></i>
+            </div>
+            <div>
+              <h4 class="font-extrabold text-slate-800 text-sm uppercase">${cat}</h4>
+              <span class="text-[11px] text-slate-400">Bảng đơn giá cho 12 Size chuẩn</span>
+            </div>
+          </div>
+          
+          <button onclick="saveBulkPricesForCategory('${cat}', this)" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center space-x-1.5">
+            <i class="fas fa-save"></i>
+            <span>Lưu Bảng Giá ${cat}</span>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2.5">
+          ${sizes.map(sz => {
+            const match = catPrices.find(p => p.size === sz);
+            const currentPrice = match ? match.donGia : 120000;
+            return `
+              <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-center hover:bg-slate-100/80 transition-colors">
+                <span class="block text-[11px] font-extrabold text-indigo-700 uppercase">${sz}</span>
+                <div class="mt-1.5 relative">
+                  <input type="number" value="${currentPrice}" data-category="${cat}" data-size="${sz}" class="bulk-price-input w-full text-center font-extrabold text-xs py-1.5 px-1 rounded-lg border border-slate-300 bg-white text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none" />
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function saveBulkPricesForCategory(catName, btnEl) {
+  const card = btnEl.closest('.bg-white');
+  const inputs = card.querySelectorAll('.bulk-price-input');
+  
+  const sizePriceMap = {};
+  inputs.forEach(inp => {
+    const sz = inp.getAttribute('data-size');
+    const val = Number(inp.value) || 0;
+    sizePriceMap[sz] = val;
+  });
+
+  showLoading(true);
+
+  if (CONFIG.APPS_SCRIPT_URL) {
+    try {
+      for (const sz of Object.keys(sizePriceMap)) {
+        await fetch(CONFIG.APPS_SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'updatePrice',
+            priceItem: { tenSP: catName, size: sz, donGia: sizePriceMap[sz], trangThai: 'Hoạt động' }
+          })
+        });
+      }
+    } catch(err) {
+      console.warn('Lỗi API update prices:', err);
+    }
+  }
+
+  LocalDB.saveBulkPricesForCategory(catName, sizePriceMap);
+  await loadPriceData();
+  showLoading(false);
+
+  alert(`Đã lưu bảng giá 12 Size cho "${catName}" thành công!`);
+  initRegistrationForm();
+}
+
+// ============================================================================
+// IN BIÊN LAI THU TIỀN
+// ============================================================================
+
+function openReceiptModal(order) {
+  const modal = document.getElementById('receipt-modal');
+  const printContent = document.getElementById('receipt-print-area');
+  if (!modal || !printContent) return;
+
+  let day = '03', month = '07', year = '2026';
+  if (order.ngayDangKy) {
+    const parts = order.ngayDangKy.split('-');
+    if (parts.length === 3) {
+      year = parts[0];
+      month = parts[1];
+      day = parts[2];
+    }
+  }
+
+  const generateSingleReceiptHTML = (lienTitle) => `
+    <div class="receipt-card border border-slate-700 p-3 rounded bg-white text-slate-900 font-sans flex flex-col justify-between box-border overflow-hidden">
+      
+      <div>
+        <div class="flex justify-between items-center mb-1 text-[10px] text-slate-500">
+          <span class="italic">Quy trình...</span>
+          <span class="border border-slate-700 rounded px-1.5 py-0.5 font-bold text-slate-900 text-[10px]">${lienTitle}</span>
+        </div>
+
+        <div class="text-center mb-2">
+          <h2 class="text-[11px] font-extrabold uppercase tracking-tight text-slate-900 leading-tight">${CONFIG.ORGANIZATION_NAME || 'TRƯỜNG TIỂU HỌC NGUYỄN THANH TUYỀN'}</h2>
+          <h1 class="text-sm font-black uppercase tracking-wide text-slate-900 my-0.5">BIÊN LAI THU TIỀN</h1>
+          <p class="text-[10px] font-extrabold text-slate-900 uppercase my-0.5">NĂM HỌC 2026 - 2027</p>
+          <p class="text-[10px] italic text-slate-600">Ngày ${day} tháng ${month} năm ${year}</p>
+        </div>
+
+        <div class="space-y-0.5 text-[10px] mb-2 leading-tight">
+          <div><span class="text-slate-600">Mã:</span> <strong class="font-mono text-slate-900">${order.maDon}</strong></div>
+          <div><span class="text-slate-600">Họ và tên:</span> <strong class="uppercase text-slate-900">${order.hoTen}</strong></div>
+          <div><span class="text-slate-600">Đơn vị / Lớp:</span> <strong class="text-slate-900">${order.donVi}</strong></div>
+          <div><span class="text-slate-600">Nội dung thu:</span> <span>Đăng ký đồng phục</span></div>
+        </div>
+
+        <table class="w-full text-left border-collapse border border-slate-800 text-[10px] mb-1.5">
+          <thead>
+            <tr class="bg-slate-50 text-slate-900 font-bold border-b border-slate-800 text-center">
+              <th class="border border-slate-800 px-1 py-0.5">Tên hàng</th>
+              <th class="border border-slate-800 px-1 py-0.5 w-10">Size</th>
+              <th class="border border-slate-800 px-1 py-0.5 text-right">Đơn giá</th>
+              <th class="border border-slate-800 px-1 py-0.5 text-center w-6">SL</th>
+              <th class="border border-slate-800 px-1 py-0.5 text-right">Thành tiền</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${(order.chiTietSanPham || []).map(item => `
+              <tr class="border-b border-slate-800">
+                <td class="border border-slate-800 px-1 py-0.5">${item.tenSP}</td>
+                <td class="border border-slate-800 px-1 py-0.5 text-center font-bold">${item.size}</td>
+                <td class="border border-slate-800 px-1 py-0.5 text-right">${formatNumberOnly(item.donGia)}</td>
+                <td class="border border-slate-800 px-1 py-0.5 text-center">${item.soLuong}</td>
+                <td class="border border-slate-800 px-1 py-0.5 text-right font-semibold">${formatNumberOnly(item.thanhTien)}</td>
+              </tr>
+            `).join('')}
+            <tr class="font-bold">
+              <td colspan="4" class="border border-slate-800 px-1 py-0.5 text-right">Tổng cộng:</td>
+              <td class="border border-slate-800 px-1 py-0.5 text-right font-black text-slate-900">${formatNumberOnly(order.tongTien)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="text-[10px] italic mb-2">
+          <strong>(Số tiền bằng chữ):</strong> ${numberToVietnameseWords(order.tongTien)}
+        </div>
+
+        <div class="grid grid-cols-2 text-center text-[10px] mt-2 mb-3">
+          <div>
+            <p class="font-bold text-slate-900">Người nhận</p>
+            <p class="text-[9px] text-slate-500 italic">(Ký, ghi rõ họ tên)</p>
+          </div>
+          <div>
+            <p class="font-bold text-slate-900">Người thu tiền</p>
+            <p class="text-[9px] text-slate-500 italic">(Ký, ghi rõ họ tên)</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-1.5 border-t border-dashed border-slate-400 text-[10px] italic text-slate-700">
+        <div>Ghi chú: ....................................................................................................................................</div>
+        <div class="mt-1 border-b border-dashed border-slate-300"></div>
+      </div>
+
+    </div>
+  `;
+
+  printContent.innerHTML = `
+    <div class="twin-receipt-grid">
+      ${generateSingleReceiptHTML('Liên 1: Lưu')}
+      ${generateSingleReceiptHTML('Liên 2: Khách hàng')}
+    </div>
+  `;
+
+  modal.classList.remove('hidden');
+}
+
+function closeReceiptModal() {
+  const modal = document.getElementById('receipt-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function printReceipt() {
+  window.print();
+}
+
+function formatVND(amount) {
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
+}
+
+function formatNumberOnly(amount) {
+  return new Intl.NumberFormat('vi-VN').format(amount || 0);
+}
+
+function numberToVietnameseWords(number) {
+  if (!number || isNaN(number) || number === 0) return "không đồng.";
+
+  const digits = ["không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"];
+
+  function readBlock(num, showZeroHundreds) {
+    let hundred = Math.floor(num / 100);
+    let ten = Math.floor((num % 100) / 10);
+    let unit = num % 10;
+    let res = "";
+
+    if (hundred > 0 || showZeroHundreds) {
+      res += digits[hundred] + " trăm ";
+    }
+    if (ten > 1) {
+      res += digits[ten] + " mươi ";
+      if (unit === 1) res += "mốt ";
+      else if (unit === 5) res += "lăm ";
+      else if (unit > 0) res += digits[unit] + " ";
+    } else if (ten === 1) {
+      res += "mười ";
+      if (unit === 1) res += "một ";
+      else if (unit === 5) res += "lăm ";
+      else if (unit > 0) res += digits[unit] + " ";
+    } else if (ten === 0 && unit > 0) {
+      if (hundred > 0 || showZeroHundreds) res += "lẻ ";
+      if (unit === 5 && (hundred > 0 || showZeroHundreds)) res += "lăm ";
+      else res += digits[unit] + " ";
+    }
+    return res;
+  }
+
+  let numStr = "";
+  let val = Math.floor(Math.abs(number));
+
+  let billion = Math.floor(val / 1000000000);
+  val %= 1000000000;
+  let million = Math.floor(val / 1000000);
+  val %= 1000000;
+  let thousand = Math.floor(val / 1000);
+  let remainder = val % 1000;
+
+  if (billion > 0) {
+    numStr += readBlock(billion, false) + "tỷ ";
+  }
+  if (million > 0) {
+    numStr += readBlock(million, billion > 0) + "triệu, ";
+  }
+  if (thousand > 0) {
+    numStr += readBlock(thousand, billion > 0 || million > 0) + "ngàn ";
+  }
+  if (remainder > 0) {
+    numStr += readBlock(remainder, billion > 0 || million > 0 || thousand > 0);
+  }
+
+  numStr = numStr.trim();
+  if (numStr.endsWith(',')) numStr = numStr.slice(0, -1);
+  numStr += " đồng chẵn.";
+
+  return numStr.charAt(0).toUpperCase() + numStr.slice(1);
+}
+
+function showLoading(show) {
+  const loader = document.getElementById('global-loader');
+  if (loader) {
+    if (show) loader.classList.remove('hidden');
+    else loader.classList.add('hidden');
+  }
+}
