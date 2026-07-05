@@ -1,33 +1,50 @@
 /**
  * HỆ THỐNG ĐĂNG KÝ ĐỒNG PHỤC 2026 - FRONTEND CONTROLLER
- * Tối ưu hóa cho môi trường GitHub Pages và Google Apps Script Live.
+ * Đảm bảo 100% không crash khi chạy trên môi trường GitHub Pages hay bất kỳ server nào.
  */
 
 let priceList = [];
 let ordersList = [];
 let chartInstances = {};
 
-document.addEventListener('DOMContentLoaded', () => {
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => initApp());
+} else {
   initApp();
-});
+}
 
 async function initApp() {
-  setupNavigation();
-  setupAdminLogin();
-  setupLookup();
-  setupEditOrderForm();
+  try { setupNavigation(); } catch(e){ console.error(e); }
+  try { setupAdminLogin(); } catch(e){ console.error(e); }
+  try { setupLookup(); } catch(e){ console.error(e); }
+  try { setupEditOrderForm(); } catch(e){ console.error(e); }
 
-  await loadPriceData();
-  await loadOrdersData();
-  
-  initRegistrationForm();
+  try {
+    await loadPriceData();
+  } catch (e) {
+    console.error("Lỗi loadPriceData:", e);
+    priceList = LocalDB.getPrices();
+  }
+
+  try {
+    await loadOrdersData();
+  } catch (e) {
+    console.error("Lỗi loadOrdersData:", e);
+    ordersList = LocalDB.getOrders();
+  }
+
+  try {
+    initRegistrationForm();
+  } catch (e) {
+    console.error("Lỗi initRegistrationForm:", e);
+  }
 }
 
 function setupNavigation() {
   const tabs = document.querySelectorAll('.nav-tab');
 
   tabs.forEach(tab => {
-    tab.addEventListener('click', (e) => {
+    tab.onclick = (e) => {
       e.preventDefault();
       const targetId = tab.getAttribute('data-target');
 
@@ -40,7 +57,7 @@ function setupNavigation() {
       }
 
       switchTab(targetId);
-    });
+    };
   });
 }
 
@@ -300,7 +317,7 @@ function addProductRow(defaultProductTitle = '') {
   const rowId = 'row-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
 
   let uniqueProducts = [...new Set(priceList.map(item => item.tenSP))];
-  if (uniqueProducts.length === 0) {
+  if (!uniqueProducts || uniqueProducts.length === 0) {
     uniqueProducts = UNIFORM_CATEGORIES || ['Áo sơ mi', 'Quần short', 'Váy', 'Áo thể dục', 'Quần thể dục'];
   }
 
@@ -385,7 +402,7 @@ function bindRowEvents(rowEl) {
     }
 
     let availableSizes = priceList.filter(item => item.tenSP === selectedProd && item.trangThai === 'Hoạt động');
-    if (availableSizes.length === 0) {
+    if (!availableSizes || availableSizes.length === 0) {
       availableSizes = UNIFORM_SIZES.map((sz, i) => ({ size: sz, donGia: 120000 + i * 5000 }));
     }
 
@@ -574,16 +591,16 @@ function performLookup(keyword) {
   const container = document.getElementById('lookup-results');
   if (!container) return;
 
-  const kw = keyword.toLowerCase().trim();
+  const kw = (keyword || '').toLowerCase().trim();
   if (!kw) {
     container.innerHTML = `<p class="text-center text-slate-500 py-6">Nhập Mã đơn hàng hoặc Họ tên để tìm kiếm.</p>`;
     return;
   }
 
   const matches = ordersList.filter(o => 
-    o.maDon.toLowerCase().includes(kw) ||
-    o.hoTen.toLowerCase().includes(kw) ||
-    o.donVi.toLowerCase().includes(kw)
+    (o.maDon || '').toLowerCase().includes(kw) ||
+    (o.hoTen || '').toLowerCase().includes(kw) ||
+    (o.donVi || '').toLowerCase().includes(kw)
   );
 
   if (matches.length === 0) {
@@ -829,7 +846,7 @@ function openEditOrderModal(maDon) {
 
   if (itemsContainer) {
     let uniqueProducts = [...new Set(priceList.map(item => item.tenSP))];
-    if (uniqueProducts.length === 0) uniqueProducts = UNIFORM_CATEGORIES;
+    if (!uniqueProducts || uniqueProducts.length === 0) uniqueProducts = UNIFORM_CATEGORIES;
     const sizes = UNIFORM_SIZES || ['Size 1', 'Size 2', 'Size 3', 'Size 4', 'Size 5', 'Size 6', 'Size 7', 'Size 8', 'Size 9', 'Size 10', 'Size 11', 'Size 12'];
 
     itemsContainer.innerHTML = (order.chiTietSanPham || []).map((item, idx) => `

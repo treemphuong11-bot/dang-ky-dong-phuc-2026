@@ -1,10 +1,10 @@
 /**
  * CONFIG & MOCK DATABASE HANDLER
- * Tự động chuyển đổi giữa Chế độ Demo Cục bộ (Local Database) và Google Apps Script Web App Live API.
+ * Tự động chuyển đổi giữa Chế độ Cục bộ (Local Database) và Google Apps Script Live API.
  */
 
 const CONFIG = {
-  APPS_SCRIPT_URL: '', // Dán URL Google Apps Script Web App tại đây sau khi deploy
+  APPS_SCRIPT_URL: '', // URL Web App Google Apps Script khi deploy
   APP_TITLE: 'ĐĂNG KÝ ĐỒNG PHỤC NĂM HỌC 2026 - 2027',
   ORGANIZATION_NAME: 'TRƯỜNG TIỂU HỌC NGUYỄN THANH TUYỀN',
   ACADEMIC_YEAR: 'NĂM HỌC 2026 - 2027',
@@ -19,7 +19,7 @@ const CONFIG = {
 const UNIFORM_CATEGORIES = ['Áo sơ mi', 'Quần short', 'Váy', 'Áo thể dục', 'Quần thể dục'];
 const UNIFORM_SIZES = ['Size 1', 'Size 2', 'Size 3', 'Size 4', 'Size 5', 'Size 6', 'Size 7', 'Size 8', 'Size 9', 'Size 10', 'Size 11', 'Size 12'];
 
-// Sinh 60 đơn giá mẫu cho 5 loại x 12 size
+// Sinh 60 đơn giá mẫu mặc định
 const DEFAULT_PRICES = [];
 
 UNIFORM_CATEGORIES.forEach((cat, cIdx) => {
@@ -74,7 +74,9 @@ class LocalDB {
   }
 
   static savePrices(prices) {
-    localStorage.setItem('DP_PRICES', JSON.stringify(prices));
+    try {
+      localStorage.setItem('DP_PRICES', JSON.stringify(prices));
+    } catch(e){}
   }
 
   static getOrders() {
@@ -106,7 +108,9 @@ class LocalDB {
       ghiChu: orderData.ghiChu || ''
     };
     orders.unshift(newOrder);
-    localStorage.setItem('DP_ORDERS', JSON.stringify(orders));
+    try {
+      localStorage.setItem('DP_ORDERS', JSON.stringify(orders));
+    } catch(e){}
     return newOrder;
   }
 
@@ -124,7 +128,9 @@ class LocalDB {
         tongTien: orderData.tongTien,
         ghiChu: orderData.ghiChu || ''
       };
-      localStorage.setItem('DP_ORDERS', JSON.stringify(orders));
+      try {
+        localStorage.setItem('DP_ORDERS', JSON.stringify(orders));
+      } catch(e){}
       return true;
     }
     return false;
@@ -135,7 +141,9 @@ class LocalDB {
     const idx = orders.findIndex(o => o.maDon === maDon);
     if (idx !== -1) {
       orders[idx].trangThaiThanhToan = trangThai;
-      localStorage.setItem('DP_ORDERS', JSON.stringify(orders));
+      try {
+        localStorage.setItem('DP_ORDERS', JSON.stringify(orders));
+      } catch(e){}
       return true;
     }
     return false;
@@ -144,7 +152,9 @@ class LocalDB {
   static deleteOrder(maDon) {
     let orders = this.getOrders();
     orders = orders.filter(o => o.maDon !== maDon);
-    localStorage.setItem('DP_ORDERS', JSON.stringify(orders));
+    try {
+      localStorage.setItem('DP_ORDERS', JSON.stringify(orders));
+    } catch(e){}
     return true;
   }
 

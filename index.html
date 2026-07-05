@@ -364,7 +364,7 @@
     </div>
   </div>
 
-  <!-- MODAL SỬA ĐƠN ĐĂNG KÝ (CHO PHÉP CẢ USER VÀ ADMIN SỬA) -->
+  <!-- MODAL SỬA ĐƠN ĐĂNG KÝ -->
   <div id="edit-order-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto">
       <div class="flex justify-between items-center pb-4 mb-4 border-b border-slate-100">
@@ -466,5 +466,14 @@
 
   <script src="js/config.js"></script>
   <script src="js/app.js"></script>
+
+  <!-- INLINE FALLBACK EXECUTION: Đảm bảo luôn tự động hiển thị 4 ô đồng phục ngay lập tức -->
+  <script>
+    setTimeout(function() {
+      if (typeof initApp === 'function') {
+        initApp();
+      }
+    }, 300);
+  </script>
 </body>
 </html>
