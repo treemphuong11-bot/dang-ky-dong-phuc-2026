@@ -601,7 +601,7 @@ async function handleFormSubmit(e) {
     try {
       const res = await fetch(CONFIG.APPS_SCRIPT_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ action: 'createOrder', data: orderPayload })
       });
       const json = await res.json();
@@ -1105,7 +1105,7 @@ async function handleEditOrderSubmit(e) {
     try {
       await fetch(CONFIG.APPS_SCRIPT_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ action: 'updateOrder', data: updatedPayload })
       });
     } catch (err) {
@@ -1136,7 +1136,7 @@ async function deleteOrderAdmin(maDon, hoTen) {
     try {
       await fetch(CONFIG.APPS_SCRIPT_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ action: 'deleteOrder', maDon: maDon })
       });
     } catch (err) {
@@ -1165,7 +1165,7 @@ async function togglePaymentStatus(maDon) {
     try {
       await fetch(CONFIG.APPS_SCRIPT_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ action: 'updatePayment', maDon: maDon, trangThai: newStatus })
       });
     } catch (err) {
@@ -1260,7 +1260,7 @@ async function saveBulkPricesForCategory(catName, btnEl) {
       for (const sz of Object.keys(sizePriceMap)) {
         await fetch(CONFIG.APPS_SCRIPT_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'text/plain' },
           body: JSON.stringify({
             action: 'updatePrice',
             priceItem: { tenSP: catName, size: sz, donGia: sizePriceMap[sz], trangThai: 'Hoạt động' }
