@@ -16,6 +16,7 @@ if (document.readyState === 'loading') {
 }
 
 async function initApp() {
+  try { checkAuth(); } catch(e){ console.error(e); }
   try { setupNavigation(); } catch(e){ console.error(e); }
   try { setupAdminLogin(); } catch(e){ console.error(e); }
   try { setupLookup(); } catch(e){ console.error(e); }
@@ -112,45 +113,62 @@ function switchTab(targetId) {
 // ĐĂNG NHẬP PHÂN QUYỀN
 // ============================================================================
 
-function setupAdminLogin() {
-  const selectEl = document.getElementById('login-user-select');
+function checkAuth() {
+  const loggedUserStr = sessionStorage.getItem('LOGGED_USER_DATA');
+  const loginScreen = document.getElementById('compulsory-login-screen');
+  const userBanner = document.getElementById('logged-user-banner');
+  const nameDisplay = document.getElementById('logged-user-name-display');
+  const adminTab = document.getElementById('nav-admin-tab');
+
+  if (loggedUserStr) {
+    try {
+      const userObj = JSON.parse(loggedUserStr);
+      if (loginScreen) loginScreen.classList.add('hidden');
+      if (userBanner) userBanner.classList.remove('hidden');
+      if (nameDisplay) nameDisplay.innerText = `${userObj.name}`;
+      
+      // Phân quyền hiển thị tab Admin
+      if (userObj.role === 'admin') {
+        if (adminTab) adminTab.classList.remove('hidden');
+      } else {
+        if (adminTab) adminTab.classList.add('hidden');
+        // Nếu lỡ đang ở tab admin thì đá về register
+        const activeTab = document.querySelector('.nav-tab.active');
+        if (activeTab && activeTab.getAttribute('data-target') === 'admin-section') {
+          switchTab('register-section');
+        }
+      }
+    } catch(e) {
+      sessionStorage.removeItem('LOGGED_USER_DATA');
+      showLoginScreen();
+    }
+  } else {
+    showLoginScreen();
+  }
+}
+
+function showLoginScreen() {
+  const loginScreen = document.getElementById('compulsory-login-screen');
+  const userBanner = document.getElementById('logged-user-banner');
+  const selectEl = document.getElementById('compulsory-login-user-select');
+
+  if (loginScreen) loginScreen.classList.remove('hidden');
+  if (userBanner) userBanner.classList.add('hidden');
+
   if (selectEl && CONFIG.ACCOUNTS) {
     selectEl.innerHTML = CONFIG.ACCOUNTS.map(u => `
       <option value="${u.username}">${u.name}</option>
     `).join('');
   }
-
-  const loginForm = document.getElementById('admin-login-form');
-  if (loginForm) {
-    loginForm.onsubmit = handleAdminLogin;
-  }
 }
 
-function openAdminLoginModal() {
-  setupAdminLogin();
-
-  const modal = document.getElementById('admin-login-modal');
-  const errAlert = document.getElementById('login-error-alert');
-  const passInput = document.getElementById('login-password-input');
-
-  if (errAlert) errAlert.classList.add('hidden');
-  if (passInput) passInput.value = '';
-
-  if (modal) modal.classList.remove('hidden');
-}
-
-function closeAdminLoginModal() {
-  const modal = document.getElementById('admin-login-modal');
-  if (modal) modal.classList.add('hidden');
-}
-
-function handleAdminLogin(e) {
+function handleCompulsoryLogin(e) {
   e.preventDefault();
 
-  const username = document.getElementById('login-user-select').value;
-  const password = document.getElementById('login-password-input').value;
-  const errAlert = document.getElementById('login-error-alert');
-  const errMsg = document.getElementById('login-error-msg');
+  const username = document.getElementById('compulsory-login-user-select').value;
+  const password = document.getElementById('compulsory-login-password-input').value;
+  const errAlert = document.getElementById('compulsory-login-error-alert');
+  const errMsg = document.getElementById('compulsory-login-error-msg');
 
   const matchedUser = CONFIG.ACCOUNTS.find(u => u.username === username && u.password === password);
 
@@ -160,8 +178,10 @@ function handleAdminLogin(e) {
       name: matchedUser.name,
       role: matchedUser.role
     }));
-    closeAdminLoginModal();
-    switchTab('admin-section');
+    if (errAlert) errAlert.classList.add('hidden');
+    document.getElementById('compulsory-login-password-input').value = '';
+    checkAuth();
+    switchTab('register-section');
   } else {
     if (errAlert && errMsg) {
       errMsg.innerText = 'Mật khẩu không chính xác! Vui lòng thử lại.';
@@ -170,9 +190,13 @@ function handleAdminLogin(e) {
   }
 }
 
+function setupAdminLogin() {
+  // Hàm này giữ lại để không lỗi biên dịch nhưng không cần thực thi
+}
+
 function logoutAdmin() {
   sessionStorage.removeItem('LOGGED_USER_DATA');
-  switchTab('register-section');
+  checkAuth();
 }
 
 // ============================================================================
@@ -583,6 +607,9 @@ async function handleFormSubmit(e) {
 
   const tongTien = chiTietSanPham.reduce((sum, item) => sum + item.thanhTien, 0);
 
+  const loggedUser = JSON.parse(sessionStorage.getItem('LOGGED_USER_DATA') || '{}');
+  const nguoiTao = loggedUser.username || 'unknown';
+
   const orderPayload = {
     hoTen,
     sdt,
@@ -590,7 +617,8 @@ async function handleFormSubmit(e) {
     gioiTinh,
     chiTietSanPham,
     tongTien,
-    ghiChu
+    ghiChu,
+    nguoiTao
   };
 
   showLoading(true);
@@ -938,7 +966,7 @@ function renderAdminOrdersTable() {
       <td class="font-bold text-indigo-600">${o.maDon}</td>
       <td class="text-slate-500 text-xs">${o.ngayDangKy}</td>
       <td class="font-medium">${o.hoTen}</td>
-      <td class="text-slate-600">${o.donVi}</td>
+      <td class="text-slate-600">${o.donVi}<div class="text-[10px] text-slate-400 font-semibold italic">Tạo bởi: ${o.nguoiTao || 'Không rõ'}</div></td>
       <td class="text-xs">
         ${(o.chiTietSanPham || []).map(i => `<div>${i.tenSP} (${i.size}) x${i.soLuong}</div>`).join('')}
       </td>

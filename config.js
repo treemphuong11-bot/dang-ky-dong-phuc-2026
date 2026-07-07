@@ -11,7 +11,8 @@ const CONFIG = {
   
   ACCOUNTS: [
     { username: 'admin', name: 'Quản trị viên (Admin)', role: 'admin', password: 'ngochanh123' },
-    { username: 'user', name: 'Nhân viên kiểm tra (User)', role: 'user', password: '123' }
+    { username: 'user1', name: 'Nhân viên 1 (User 1)', role: 'user', password: '123' },
+    { username: 'user2', name: 'Nhân viên 2 (User 2)', role: 'user', password: '123' }
   ]
 };
 
@@ -105,7 +106,8 @@ class LocalDB {
       chiTietSanPham: orderData.chiTietSanPham || [],
       tongTien: orderData.tongTien,
       trangThaiThanhToan: 'Chưa thu',
-      ghiChu: orderData.ghiChu || ''
+      ghiChu: orderData.ghiChu || '',
+      nguoiTao: orderData.nguoiTao || ''
     };
     orders.unshift(newOrder);
     try {
