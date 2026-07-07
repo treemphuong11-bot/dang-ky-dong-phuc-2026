@@ -68,22 +68,19 @@
         margin: 0;
       }
 
-      body * {
-        visibility: hidden;
-      }
-
-      #receipt-modal, #receipt-print-area, #receipt-print-area * {
-        visibility: visible;
+      body > *:not(#receipt-modal) {
+        display: none !important;
       }
 
       #receipt-modal {
+        display: block !important;
         position: absolute;
         left: 0;
         top: 0;
-        width: 297mm;
-        height: 210mm;
-        margin: 0;
-        padding: 0;
+        width: 100% !important;
+        height: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
         background: white !important;
         overflow: hidden;
       }
