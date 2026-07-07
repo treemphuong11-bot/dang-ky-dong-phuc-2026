@@ -153,6 +153,145 @@
         grid-template-columns: 1fr 1fr;
       }
     }
+
+    /* ĐỊNH DẠNG CSS BIÊN LAI CHUẨN (Hỗ trợ html2pdf.js kết xuất đầy đủ chữ và đẩy ghi chú xuống cuối) */
+    .receipt-card {
+      width: 100%;
+      height: 100%;
+      border: 1.5px dashed #475569 !important;
+      border-radius: 8px;
+      padding: 12px !important;
+      box-sizing: border-box !important;
+      background-color: #ffffff !important;
+      color: #0f172a !important;
+      font-family: Arial, Helvetica, sans-serif !important;
+      display: flex !important;
+      flex-direction: column !important;
+      justify-content: space-between !important;
+    }
+    .receipt-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+      font-size: 10px;
+      color: #64748b;
+    }
+    .receipt-lien-badge {
+      border: 1px solid #475569;
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-weight: bold;
+      color: #0f172a;
+    }
+    .receipt-title-section {
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .receipt-org-name {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: #0f172a;
+      margin: 0;
+    }
+    .receipt-main-title {
+      font-size: 14px;
+      font-weight: 900;
+      text-transform: uppercase;
+      color: #0f172a;
+      margin: 2px 0;
+    }
+    .receipt-sub-title {
+      font-size: 10px;
+      font-weight: bold;
+      color: #0f172a;
+      margin: 2px 0;
+    }
+    .receipt-date {
+      font-size: 10px;
+      font-style: italic;
+      color: #475569;
+      margin: 2px 0;
+    }
+    .receipt-info-section {
+      font-size: 10px;
+      margin-bottom: 8px;
+      line-height: 1.4;
+      text-align: left;
+    }
+    .receipt-info-label {
+      color: #475569;
+    }
+    .receipt-info-value {
+      color: #0f172a;
+      font-weight: bold;
+    }
+    .receipt-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 9px;
+      margin-top: 4px;
+      margin-bottom: 4px;
+    }
+    .receipt-table th {
+      background-color: #f8fafc;
+      color: #0f172a;
+      font-weight: bold;
+      border: 1px solid #94a3b8;
+      padding: 3px 4px;
+      text-align: center;
+    }
+    .receipt-table td {
+      border: 1px solid #94a3b8;
+      padding: 3px 4px;
+      color: #0f172a;
+    }
+    .receipt-text-right {
+      text-align: right;
+    }
+    .receipt-text-center {
+      text-align: center;
+    }
+    .receipt-words {
+      font-size: 9px;
+      font-style: italic;
+      margin-bottom: 8px;
+      color: #0f172a;
+      text-align: left;
+    }
+    .receipt-signatures {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      text-align: center;
+      font-size: 10px;
+      margin-top: 6px;
+      margin-bottom: 12px;
+    }
+    .receipt-signature-title {
+      font-weight: bold;
+      color: #0f172a;
+      margin: 0;
+    }
+    .receipt-signature-hint {
+      font-size: 8px;
+      color: #64748b;
+      font-style: italic;
+      margin: 0;
+    }
+    .receipt-note-section {
+      border-top: 1.5px dashed #cbd5e1;
+      padding-top: 6px;
+      font-size: 9px;
+      font-style: italic;
+      color: #475569;
+      margin-top: auto !important; /* Đẩy xuống cuối cùng */
+      text-align: left;
+    }
+    .receipt-note-line {
+      margin-top: 4px;
+      border-bottom: 1px dashed #cbd5e1;
+    }
   </style>
 </head>
 <body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex flex-col">

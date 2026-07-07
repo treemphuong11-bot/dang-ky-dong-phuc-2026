@@ -1330,74 +1330,74 @@ function openReceiptModal(order) {
   }
 
   const generateSingleReceiptHTML = (lienTitle) => `
-    <div class="receipt-card border border-slate-700 p-3 rounded bg-white text-slate-900 font-sans flex flex-col justify-between box-border overflow-hidden">
+    <div class="receipt-card">
       
       <div>
-        <div class="flex justify-between items-center mb-1 text-[10px] text-slate-500">
-          <span class="italic">Quy trình...</span>
-          <span class="border border-slate-700 rounded px-1.5 py-0.5 font-bold text-slate-900 text-[10px]">${lienTitle}</span>
+        <div class="receipt-header">
+          <span style="font-style: italic;">Quy trình đăng ký...</span>
+          <span class="receipt-lien-badge">${lienTitle}</span>
         </div>
 
-        <div class="text-center mb-2">
-          <h2 class="text-[11px] font-extrabold uppercase tracking-tight text-slate-900 leading-tight">${CONFIG.ORGANIZATION_NAME || 'TRƯỜNG TIỂU HỌC NGUYỄN THANH TUYỀN'}</h2>
-          <h1 class="text-sm font-black uppercase tracking-wide text-slate-900 my-0.5">BIÊN LAI THU TIỀN</h1>
-          <p class="text-[10px] font-extrabold text-slate-900 uppercase my-0.5">NĂM HỌC 2026 - 2027</p>
-          <p class="text-[10px] italic text-slate-600">Ngày ${day} tháng ${month} năm ${year}</p>
+        <div class="receipt-title-section">
+          <h2 class="receipt-org-name">${CONFIG.ORGANIZATION_NAME || 'TRƯỜNG TIỂU HỌC NGUYỄN THANH TUYỀN'}</h2>
+          <h1 class="receipt-main-title">BIÊN LAI THU TIỀN</h1>
+          <p class="receipt-sub-title">NĂM HỌC 2026 - 2027</p>
+          <p class="receipt-date">Ngày ${day} tháng ${month} năm ${year}</p>
         </div>
 
-        <div class="space-y-0.5 text-[10px] mb-2 leading-tight">
-          <div><span class="text-slate-600">Mã:</span> <strong class="font-mono text-slate-900">${order.maDon}</strong></div>
-          <div><span class="text-slate-600">Họ và tên:</span> <strong class="uppercase text-slate-900">${order.hoTen}</strong></div>
-          <div><span class="text-slate-600">Đơn vị / Lớp:</span> <strong class="text-slate-900">${order.donVi}</strong></div>
-          <div><span class="text-slate-600">Nội dung thu:</span> <span>Đăng ký đồng phục</span></div>
+        <div class="receipt-info-section">
+          <div><span class="receipt-info-label">Mã đơn:</span> <span class="receipt-info-value" style="font-family: monospace;">${order.maDon}</span></div>
+          <div><span class="receipt-info-label">Học sinh:</span> <span class="receipt-info-value" style="text-transform: uppercase;">${order.hoTen}</span></div>
+          <div><span class="receipt-info-label">Đơn vị / Lớp:</span> <span class="receipt-info-value">${order.donVi}</span></div>
+          <div><span class="receipt-info-label">Nội dung thu:</span> <span>Đăng ký mua đồng phục học sinh</span></div>
         </div>
 
-        <table class="w-full text-left border-collapse border border-slate-800 text-[10px] mb-1.5">
+        <table class="receipt-table">
           <thead>
-            <tr class="bg-slate-50 text-slate-900 font-bold border-b border-slate-800 text-center">
-              <th class="border border-slate-800 px-1 py-0.5">Tên hàng</th>
-              <th class="border border-slate-800 px-1 py-0.5 w-10">Size</th>
-              <th class="border border-slate-800 px-1 py-0.5 text-right">Đơn giá</th>
-              <th class="border border-slate-800 px-1 py-0.5 text-center w-6">SL</th>
-              <th class="border border-slate-800 px-1 py-0.5 text-right">Thành tiền</th>
+            <tr style="background-color: #f8fafc; font-weight: bold; text-align: center;">
+              <th style="border: 1px solid #94a3b8; padding: 3px 4px;">Tên hàng</th>
+              <th style="border: 1px solid #94a3b8; padding: 3px 4px; width: 45px;">Size</th>
+              <th style="border: 1px solid #94a3b8; padding: 3px 4px; text-align: right;">Đơn giá</th>
+              <th style="border: 1px solid #94a3b8; padding: 3px 4px; text-align: center; width: 30px;">SL</th>
+              <th style="border: 1px solid #94a3b8; padding: 3px 4px; text-align: right;">Thành tiền</th>
             </tr>
           </thead>
           <tbody>
             ${(order.chiTietSanPham || []).map(item => `
-              <tr class="border-b border-slate-800">
-                <td class="border border-slate-800 px-1 py-0.5">${item.tenSP}</td>
-                <td class="border border-slate-800 px-1 py-0.5 text-center font-bold">${item.size}</td>
-                <td class="border border-slate-800 px-1 py-0.5 text-right">${formatNumberOnly(item.donGia)}</td>
-                <td class="border border-slate-800 px-1 py-0.5 text-center">${item.soLuong}</td>
-                <td class="border border-slate-800 px-1 py-0.5 text-right font-semibold">${formatNumberOnly(item.thanhTien)}</td>
+              <tr>
+                <td style="border: 1px solid #94a3b8; padding: 3px 4px;">${item.tenSP}</td>
+                <td style="border: 1px solid #94a3b8; padding: 3px 4px; text-align: center; font-weight: bold;">${item.size}</td>
+                <td style="border: 1px solid #94a3b8; padding: 3px 4px; text-align: right;">${formatNumberOnly(item.donGia)}</td>
+                <td style="border: 1px solid #94a3b8; padding: 3px 4px; text-align: center;">${item.soLuong}</td>
+                <td style="border: 1px solid #94a3b8; padding: 3px 4px; text-align: right; font-weight: bold;">${formatNumberOnly(item.thanhTien)}</td>
               </tr>
             `).join('')}
-            <tr class="font-bold">
-              <td colspan="4" class="border border-slate-800 px-1 py-0.5 text-right">Tổng cộng:</td>
-              <td class="border border-slate-800 px-1 py-0.5 text-right font-black text-slate-900">${formatNumberOnly(order.tongTien)}</td>
+            <tr style="font-weight: bold;">
+              <td colspan="4" style="border: 1px solid #94a3b8; padding: 3px 4px; text-align: right;">Tổng cộng:</td>
+              <td style="border: 1px solid #94a3b8; padding: 3px 4px; text-align: right; font-weight: 900; color: #0f172a;">${formatNumberOnly(order.tongTien)}</td>
             </tr>
           </tbody>
         </table>
 
-        <div class="text-[10px] italic mb-2">
+        <div class="receipt-words">
           <strong>(Số tiền bằng chữ):</strong> ${numberToVietnameseWords(order.tongTien)}
         </div>
 
-        <div class="grid grid-cols-2 text-center text-[10px] mt-2 mb-3">
+        <div class="receipt-signatures">
           <div>
-            <p class="font-bold text-slate-900">Người nhận</p>
-            <p class="text-[9px] text-slate-500 italic">(Ký, ghi rõ họ tên)</p>
+            <p class="receipt-signature-title">Người nhận</p>
+            <p class="receipt-signature-hint">(Ký, ghi rõ họ tên)</p>
           </div>
           <div>
-            <p class="font-bold text-slate-900">Người thu tiền</p>
-            <p class="text-[9px] text-slate-500 italic">(Ký, ghi rõ họ tên)</p>
+            <p class="receipt-signature-title">Người thu tiền</p>
+            <p class="receipt-signature-hint">(Ký, ghi rõ họ tên)</p>
           </div>
         </div>
       </div>
 
-      <div class="pt-1.5 border-t border-dashed border-slate-400 text-[10px] italic text-slate-700">
+      <div class="receipt-note-section">
         <div>Ghi chú: ....................................................................................................................................</div>
-        <div class="mt-1 border-b border-dashed border-slate-300"></div>
+        <div class="receipt-note-line"></div>
       </div>
 
     </div>
