@@ -8,6 +8,7 @@
 let priceList = [];
 let ordersList = [];
 let chartInstances = {};
+let currentPrintOrder = null;
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => initApp());
@@ -1313,6 +1314,7 @@ async function saveBulkPricesForCategory(catName, btnEl) {
 // ============================================================================
 
 function openReceiptModal(order) {
+  currentPrintOrder = order;
   const modal = document.getElementById('receipt-modal');
   const printContent = document.getElementById('receipt-print-area');
   if (!modal || !printContent) return;
@@ -1418,6 +1420,35 @@ function closeReceiptModal() {
 
 function printReceipt() {
   window.print();
+}
+
+function exportReceiptToPDF() {
+  if (!currentPrintOrder) {
+    alert("Không tìm thấy thông tin đơn hàng để xuất PDF!");
+    return;
+  }
+
+  const element = document.getElementById('receipt-print-area');
+  if (!element) return;
+
+  showLoading(true);
+
+  // Tùy chỉnh cấu hình html2pdf để vừa khít 1 trang A4 ngang
+  const opt = {
+    margin:       [8, 8, 8, 8],
+    filename:     `BienLai_${currentPrintOrder.maDon}_${currentPrintOrder.hoTen.replace(/\s+/g, '_')}.pdf`,
+    image:        { type: 'jpeg', quality: 0.98 },
+    html2canvas:  { scale: 2, useCORS: true, logging: false },
+    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
+  };
+
+  html2pdf().set(opt).from(element).save().then(() => {
+    showLoading(false);
+  }).catch(err => {
+    console.error("Lỗi xuất PDF trực tiếp:", err);
+    showLoading(false);
+    alert("Có lỗi xảy ra khi tạo tệp PDF!");
+  });
 }
 
 function formatVND(amount) {

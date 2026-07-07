@@ -17,6 +17,9 @@
   <!-- SheetJS CDN (Xuất File Excel .xlsx) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
+  <!-- html2pdf.js CDN (Xuất Biên Lai PDF Trực Tiếp) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
   <!-- GOOGLE FONTS & TÍCH HỢP TẤT CẢ STYLESHEET (STYLING NGUYÊN KHỐI) -->
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
@@ -65,7 +68,7 @@
     @media print {
       @page {
         size: A4 landscape;
-        margin: 0;
+        margin: 5mm;
       }
 
       body > *:not(#receipt-modal) {
@@ -82,7 +85,7 @@
         margin: 0 !important;
         padding: 0 !important;
         background: white !important;
-        overflow: hidden;
+        overflow: hidden !important;
       }
 
       .no-print {
@@ -93,20 +96,49 @@
         display: grid !important;
         grid-template-columns: 1fr 1fr !important;
         gap: 8mm !important;
-        padding: 8mm !important;
-        width: 297mm !important;
-        height: 210mm !important;
+        padding: 4mm !important;
+        width: 100% !important;
+        height: 100% !important;
         box-sizing: border-box !important;
       }
 
       .receipt-card {
-        height: 194mm !important;
-        border: 1px solid #1e293b !important;
+        height: 100% !important;
+        border: 1.5px dashed #475569 !important; /* Đổi thành nét đứt để cắt */
         box-sizing: border-box !important;
-        padding: 10px !important;
+        padding: 12px !important;
         display: flex !important;
         flex-direction: column !important;
         justify-content: space-between !important;
+        font-size: 10px !important;
+        background: white !important;
+      }
+
+      /* Tối ưu cỡ chữ tiêu đề biên lai khi in */
+      .receipt-card h4 {
+        font-size: 10px !important;
+        margin-bottom: 2px !important;
+      }
+      .receipt-card h3 {
+        font-size: 13px !important;
+        margin-top: 2px !important;
+        margin-bottom: 2px !important;
+      }
+      .receipt-card p {
+        margin: 2px 0 !important;
+      }
+
+      /* Tối ưu bảng dữ liệu biên lai co nhỏ lại khi in */
+      .receipt-card table {
+        width: 100% !important;
+        font-size: 9px !important;
+        border-collapse: collapse !important;
+        margin-top: 4px !important;
+        margin-bottom: 4px !important;
+      }
+      .receipt-card th, .receipt-card td {
+        padding: 3px 4px !important;
+        border: 1px solid #94a3b8 !important;
       }
     }
 
@@ -656,9 +688,13 @@
       <div class="no-print flex justify-between items-center pb-4 mb-4 border-b border-slate-100">
         <h3 class="text-sm font-bold text-slate-800">Biên Lai Thu Tiền (Năm học 2026 - 2027)</h3>
         <div class="flex items-center space-x-2">
-          <button type="button" onclick="printReceipt()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-md cursor-pointer">
+          <button type="button" onclick="printReceipt()" class="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-md cursor-pointer">
+            <i class="fas fa-print"></i>
+            <span>In Biên Lai (2 Liên)</span>
+          </button>
+          <button type="button" onclick="exportReceiptToPDF()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-md cursor-pointer">
             <i class="fas fa-file-pdf"></i>
-            <span>Xuất PDF / In Biên Lai (A4 Ngang)</span>
+            <span>Xuất Tệp PDF (.pdf)</span>
           </button>
           <button type="button" onclick="closeReceiptModal()" class="p-2 text-slate-400 hover:text-slate-600 rounded-xl cursor-pointer">
             <i class="fas fa-times text-lg"></i>
