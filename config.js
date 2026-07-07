@@ -4,7 +4,7 @@
  */
 
 const CONFIG = {
-  APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbzIjapiAl78KjwI5CxHOMI75aw5T_ohhwtniYSOUAMkKEqEAE_VDMTpsywI_DcLFkW/exec',
+  APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbwDbE7rEzFDM4r68ymw5XQLhRvQLv5bLWeY4qJ-pQKBtIRcOaPr6t-UCZ1p6AVGHcouqg/exec',
   APP_TITLE: 'ĐĂNG KÝ ĐỒNG PHỤC NĂM HỌC 2026 - 2027',
   ORGANIZATION_NAME: 'TRƯỜNG TIỂU HỌC NGUYỄN THANH TUYỀN',
   ACADEMIC_YEAR: 'NĂM HỌC 2026 - 2027',
