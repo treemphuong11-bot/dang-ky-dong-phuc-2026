@@ -1435,7 +1435,7 @@ function exportReceiptToPDF() {
 
   // Tùy chỉnh cấu hình html2pdf để vừa khít 1 trang A4 ngang
   const opt = {
-    margin:       [8, 8, 8, 8],
+    margin:       [4, 4, 4, 4],
     filename:     `BienLai_${currentPrintOrder.maDon}_${currentPrintOrder.hoTen.replace(/\s+/g, '_')}.pdf`,
     image:        { type: 'jpeg', quality: 0.98 },
     html2canvas:  { scale: 2, useCORS: true, logging: false },
