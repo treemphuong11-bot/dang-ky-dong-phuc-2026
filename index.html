@@ -696,6 +696,12 @@
               <i class="fas fa-file-excel text-sm"></i>
               <span>Xuất Excel (.xlsx)</span>
             </button>
+
+            <button type="button" onclick="triggerJSONImport()" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 whitespace-nowrap shadow-sm cursor-pointer">
+              <i class="fas fa-file-import text-sm"></i>
+              <span>Nhập JSON</span>
+            </button>
+            <input type="file" id="json-import-file-input" accept=".json" class="hidden" onchange="handleJSONImport(event)" />
           </div>
         </div>
 

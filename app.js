@@ -1589,3 +1589,199 @@ function formatDateString(dateStr) {
   
   return dateStr;
 }
+
+function triggerJSONImport() {
+  const fileInput = document.getElementById('json-import-file-input');
+  if (fileInput) {
+    fileInput.click();
+  }
+}
+
+async function handleJSONImport(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    try {
+      const jsonData = JSON.parse(e.target.result);
+      
+      if (!jsonData.uniformPrices && !jsonData.registrations) {
+        alert("Định dạng tệp JSON không hợp lệ! Tệp backup phải chứa uniformPrices hoặc registrations.");
+        event.target.value = '';
+        return;
+      }
+
+      if (!confirm(`Bạn có chắc chắn muốn nhập khẩu tệp JSON này không?\n\n- Cập nhật đơn giá 12 size cho các sản phẩm.\n- Thêm các đơn đăng ký mới chưa tồn tại vào danh sách.`)) {
+        event.target.value = '';
+        return;
+      }
+
+      showLoading(true);
+
+      let response = null;
+      if (CONFIG.APPS_SCRIPT_URL) {
+        try {
+          const res = await fetch(CONFIG.APPS_SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify({ action: 'importJSON', data: jsonData })
+          });
+          response = await res.json();
+        } catch (err) {
+          console.warn("POST Apps Script import lỗi, thử Local Database:", err);
+        }
+      }
+
+      if (!response || !response.success) {
+        response = importJSONLocal(jsonData);
+      }
+
+      showLoading(false);
+      event.target.value = '';
+
+      if (response && response.success) {
+        alert(response.message || "Nhập khẩu dữ liệu thành công!");
+        
+        await loadPriceData();
+        await loadOrdersData();
+        
+        renderDashboard();
+        renderSizeSummaryMatrixTable();
+        renderAdminOrdersTable();
+        renderPriceManagementTable();
+        renderRecentRegistrationsLog();
+        initRegistrationForm();
+      } else {
+        alert("Nhập khẩu thất bại: " + (response ? response.message : "Lỗi hệ thống"));
+      }
+
+    } catch (error) {
+      showLoading(false);
+      event.target.value = '';
+      alert("Lỗi phân tích cú pháp tệp JSON: " + error.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function importJSONLocal(data) {
+  try {
+    let importedCount = 0;
+    
+    if (data.uniformPrices) {
+      const priceMapping = {
+        "ao": "Áo sơ mi",
+        "quan": "Quần short",
+        "vay": "Váy",
+        "aotd": "Áo thể dục",
+        "quantd": "Quần thể dục"
+      };
+      
+      const newPriceList = [...priceList];
+      for (const key in data.uniformPrices) {
+        const prices = data.uniformPrices[key];
+        const tenSP = priceMapping[key];
+        if (tenSP && Array.isArray(prices)) {
+          prices.forEach((newPrice, idx) => {
+            const sizeName = "Size " + (idx + 1);
+            let match = newPriceList.find(p => p.tenSP === tenSP && p.size === sizeName);
+            if (match) {
+              match.donGia = newPrice;
+            } else {
+              newPriceList.push({
+                maSP: key === "ao" ? "SP01" : key === "quan" ? "SP02" : key === "vay" ? "SP03" : key === "aotd" ? "SP04" : "SP05",
+                tenSP,
+                size: sizeName,
+                gioiTinh: key === "ao" ? "Nam/Nữ" : key === "quan" ? "Nam" : key === "vay" ? "Nữ" : "Nam/Nữ",
+                donGia: newPrice,
+                trangThai: "Hoạt động"
+              });
+            }
+          });
+        }
+      }
+      localStorage.setItem('LOCAL_PRICE_LIST', JSON.stringify(newPriceList));
+    }
+    
+    if (Array.isArray(data.registrations) && data.registrations.length > 0) {
+      const currentOrders = LocalDB.getOrders();
+      const nameMapping = {
+        "ao": "Áo sơ mi",
+        "quan": "Quần short",
+        "vay": "Váy",
+        "aotd": "Áo thể dục",
+        "quantd": "Quần thể dục"
+      };
+      
+      data.registrations.forEach(reg => {
+        if (!reg.name || !reg.class) return;
+        
+        let isDuplicate = currentOrders.some(o => 
+          o.hoTen.toLowerCase() === reg.name.trim().toLowerCase() && 
+          o.donVi.toLowerCase() === reg.class.trim().toLowerCase() &&
+          o.tongTien === Number(reg.grandTotal)
+        );
+        
+        if (!isDuplicate) {
+          const chiTietSanPham = [];
+          if (reg.items) {
+            for (const key in reg.items) {
+              const item = reg.items[key];
+              if (item && item.qty > 0) {
+                const rawSize = item.size || '';
+                const cleanSize = rawSize.toLowerCase().replace('size', 'Size').trim();
+                const finalSize = cleanSize.charAt(0).toUpperCase() + cleanSize.slice(1);
+                
+                chiTietSanPham.push({
+                  tenSP: nameMapping[key] || key,
+                  size: finalSize,
+                  donGia: Number(item.price),
+                  soLuong: Number(item.qty),
+                  thanhTien: Number(item.total)
+                });
+              }
+            }
+          }
+          
+          let dateStr = data.exportDate ? data.exportDate.split('T')[0] : new Date().toISOString().split('T')[0];
+          if (reg.id && !isNaN(reg.id)) {
+            try {
+              const regDate = new Date(Number(reg.id));
+              if (!isNaN(regDate.getTime())) {
+                const y = regDate.getFullYear();
+                const m = String(regDate.getMonth() + 1).padStart(2, '0');
+                const d = String(regDate.getDate()).padStart(2, '0');
+                dateStr = `${y}-${m}-${d}`;
+              }
+            } catch(e) {}
+          }
+          
+          let gioiTinh = reg.gender || 'Nam';
+          gioiTinh = gioiTinh.toUpperCase() === 'NỮ' ? 'Nữ' : 'Nam';
+          
+          const newOrder = {
+            maDon: `DP-2026-${String(currentOrders.length + 1).padStart(3, '0')}`,
+            ngayDangKy: dateStr,
+            hoTen: reg.name,
+            sdt: '',
+            donVi: reg.class,
+            gioiTinh,
+            chiTietSanPham,
+            tongTien: reg.grandTotal,
+            trangThaiThanhToan: 'Chưa thu',
+            ghiChu: reg.totalWords || '',
+            nguoiTao: 'Nhập khẩu JSON'
+          };
+          currentOrders.push(newOrder);
+          importedCount++;
+        }
+      });
+      localStorage.setItem('LOCAL_ORDERS_DATA', JSON.stringify(currentOrders));
+    }
+    
+    return { success: true, message: `Nhập khẩu Local thành công! Đã cập nhật bảng giá và thêm ${importedCount} đơn đăng ký mới.` };
+  } catch (err) {
+    return { success: false, message: 'Lỗi nhập khẩu Local: ' + err.toString() };
+  }
+}
