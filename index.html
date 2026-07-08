@@ -103,7 +103,7 @@
       }
 
       .receipt-card {
-        height: 100% !important;
+        height: 180mm !important; /* Cố định chiều cao in ấn để dàn trang khít A4 ngang */
         border: 1.5px dashed #475569 !important; /* Đổi thành nét đứt để cắt */
         box-sizing: border-box !important;
         padding: 12px !important;
@@ -112,6 +112,7 @@
         justify-content: space-between !important;
         font-size: 10px !important;
         background: white !important;
+        overflow: visible !important; /* Hiện đầy đủ chữ, không bị ẩn */
       }
 
       /* Tối ưu cỡ chữ tiêu đề biên lai khi in */
@@ -154,7 +155,7 @@
     /* ĐỊNH DẠNG CSS BIÊN LAI CHUẨN (Hỗ trợ html2pdf.js kết xuất đầy đủ chữ và đẩy ghi chú xuống cuối) */
     .receipt-card {
       width: 100%;
-      height: 175mm !important; /* Chiều cao cố định trên màn hình/PDF để tránh sụp đổ về 0 */
+      height: 180mm !important; /* Chiều cao cố định trên màn hình/PDF để tránh sụp đổ về 0 */
       border: 1.5px dashed #475569 !important;
       border-radius: 8px;
       padding: 12px !important;
@@ -165,6 +166,7 @@
       display: flex !important;
       flex-direction: column !important;
       justify-content: space-between !important;
+      overflow: visible !important; /* Hiện đầy đủ chữ, không bị ẩn */
     }
     .receipt-header {
       display: flex;

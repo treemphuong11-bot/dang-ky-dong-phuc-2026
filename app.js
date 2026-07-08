@@ -1319,13 +1319,36 @@ function openReceiptModal(order) {
   const printContent = document.getElementById('receipt-print-area');
   if (!modal || !printContent) return;
 
-  let day = '03', month = '07', year = '2026';
+  let day = '08', month = '07', year = '2026';
   if (order.ngayDangKy) {
-    const parts = order.ngayDangKy.split('-');
-    if (parts.length === 3) {
-      year = parts[0];
-      month = parts[1];
-      day = parts[2];
+    const dateStr = String(order.ngayDangKy).trim();
+    if (dateStr.includes('-')) {
+      const cleanDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+      const parts = cleanDate.split('-');
+      if (parts.length === 3) {
+        if (parts[0].length === 4) {
+          year = parts[0];
+          month = parts[1];
+          day = parts[2];
+        } else if (parts[2].length === 4) {
+          day = parts[0];
+          month = parts[1];
+          year = parts[2];
+        }
+      }
+    } else if (dateStr.includes('/')) {
+      const parts = dateStr.split('/');
+      if (parts.length === 3) {
+        if (parts[2].length === 4) {
+          day = parts[0];
+          month = parts[1];
+          year = parts[2];
+        } else if (parts[0].length === 4) {
+          year = parts[0];
+          month = parts[1];
+          day = parts[2];
+        }
+      }
     }
   }
 
