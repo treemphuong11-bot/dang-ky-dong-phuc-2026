@@ -321,7 +321,7 @@ function renderRecentRegistrationsLog() {
       <div class="space-y-1">
         <div class="flex items-center space-x-2">
           <span class="font-bold text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">${o.maDon}</span>
-          <span class="text-xs text-slate-400"><i class="far fa-clock mr-1"></i>${o.ngayDangKy}</span>
+          <span class="text-xs text-slate-400"><i class="far fa-clock mr-1"></i>${formatDateString(o.ngayDangKy)}</span>
           <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full ${o.trangThaiThanhToan === 'Đã thu' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">${o.trangThaiThanhToan}</span>
         </div>
         <div class="text-sm font-bold text-slate-800">
@@ -712,7 +712,7 @@ function performLookup(keyword) {
       <div class="flex flex-wrap items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-100">
         <div>
           <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full">${o.maDon}</span>
-          <span class="text-xs text-slate-400 ml-2"><i class="far fa-calendar-alt mr-1"></i>${o.ngayDangKy}</span>
+          <span class="text-xs text-slate-400 ml-2"><i class="far fa-calendar-alt mr-1"></i>${formatDateString(o.ngayDangKy)}</span>
         </div>
         <div>
           <span class="px-3 py-1 text-xs font-semibold rounded-full ${o.trangThaiThanhToan === 'Đã thu' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">
@@ -965,7 +965,7 @@ function renderAdminOrdersTable() {
   tbody.innerHTML = filtered.map(o => `
     <tr>
       <td class="font-bold text-indigo-600">${o.maDon}</td>
-      <td class="text-slate-500 text-xs">${o.ngayDangKy}</td>
+      <td class="text-slate-500 text-xs">${formatDateString(o.ngayDangKy)}</td>
       <td class="font-medium">${o.hoTen}</td>
       <td class="text-slate-600">${o.donVi}<div class="text-[10px] text-slate-400 font-semibold italic">Tạo bởi: ${o.nguoiTao || 'Không rõ'}</div></td>
       <td class="text-xs">
@@ -1527,4 +1527,42 @@ function showLoading(show) {
     if (show) loader.classList.remove('hidden');
     else loader.classList.add('hidden');
   }
+}
+
+function formatDateString(dateStr) {
+  if (!dateStr) return '';
+  dateStr = String(dateStr).trim();
+  
+  if (dateStr.includes('T')) {
+    try {
+      const date = new Date(dateStr);
+      if (!isNaN(date.getTime())) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${d}/${m}/${y}`;
+      }
+    } catch(e) {}
+  }
+  
+  if (dateStr.includes('/')) {
+    const parts = dateStr.split('/');
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      }
+      return dateStr;
+    }
+  }
+  
+  if (dateStr.includes('-')) {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      }
+    }
+  }
+  
+  return dateStr;
 }
